@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from pydantic import BaseModel
 
 
@@ -13,3 +13,22 @@ class ChatRequest(BaseModel):
     user_query: str
     stream: bool = False
     history: List[Message] = []
+
+
+# 定义单条资讯的结构
+class NoticeItem(BaseModel):
+    id: str
+    label: Optional[str] = None
+    title: str
+    date: str
+    detail_url: str
+    is_page: bool
+
+
+# 定义列表接口的整体返回格式
+class NoticeListResponse(BaseModel):
+    status: str
+    page: int
+    size: int
+    total_returned: int  # 本次实际返回的条数
+    data: List[NoticeItem]
