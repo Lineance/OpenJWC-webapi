@@ -39,6 +39,15 @@ class DBService:
             cursor.execute(create_table_sql)
             conn.commit()
 
+    def drop_table(self):
+        """如果想更彻底，直接删除表结构"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DROP TABLE IF EXISTS notices")
+            conn.commit()
+            print("表结构已删除。")
+            self.init_db()  # 重新创建干净的表
+
     def sync_from_json(self, json_file_path: str) -> Dict[str, int]:
         """
         核心功能：从爬虫生成的 JSON 文件读取数据并同步到数据库中。
@@ -136,5 +145,13 @@ class DBService:
 db = DBService()
 
 if __name__ == "__main__":
-    db.init_db()
-    db.sync_from_json(NOTICE_JSON)
+    import sys
+
+    if "--reset" in sys.argv:
+        print("正在进行重置同步模式...")
+        db.drop_table()
+    else:
+        db.init_db()
+
+    result = db.sync_from_json(NOTICE_JSON)
+    print(f"同步完成: {result}")

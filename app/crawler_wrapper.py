@@ -2,11 +2,10 @@
 import time
 import subprocess
 import logging
-from pathlib import Path
 
 # 引入我们之前写好的配置和数据库服务
 from app.core.config import BIN_DIR, DATA_DIR
-from app.services.db_service import db
+from app.services.sql_db_service import db
 
 # 配置简单的日志，这样你在服务器上用 docker logs 就能看到爬虫运行情况
 logging.basicConfig(

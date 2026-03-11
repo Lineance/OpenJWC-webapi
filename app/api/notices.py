@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Query
 from app.models.schemas import NoticeListResponse
-from app.services.db_service import db  # 导入我们在上一节写的单例数据库服务
+from app.services.sql_db_service import db  # 导入我们在上一节写的单例数据库服务
 
 router = APIRouter()
 
