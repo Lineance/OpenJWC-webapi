@@ -57,7 +57,7 @@ class VectorDBService:
             return False
 
         print(f"开始处理并向量化新资讯 [{notice['title']}]...")
-        content = notice["text"]
+        content = notice["content_text"]
         chunk_size = 500
         chunks = [
             content[i : i + chunk_size] for i in range(0, len(content), chunk_size)
