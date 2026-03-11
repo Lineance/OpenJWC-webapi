@@ -4,10 +4,7 @@ import os
 from pathlib import Path
 from typing import List, Dict, Optional
 
-ROOT_DIR = Path(__file__).resolve().parent.parent.parent
-DATA_DIR = ROOT_DIR / "data"
-NOTICE_DB = DATA_DIR / "jwc_notices.db"
-NOTICE_JSON = DATA_DIR / "output.json"
+from app.core.config import ROOT_DIR, NOTICE_DB, NOTICE_JSON
 
 
 class DBService:
@@ -32,7 +29,8 @@ class DBService:
             date TEXT,
             detail_url TEXT,
             is_page BOOLEAN,
-            content TEXT,
+            content_text TEXT,
+            attachments TEXT,
             is_pushed BOOLEAN DEFAULT 0  -- 0代表未推送，1代表已推送
         )
         """
@@ -60,16 +58,23 @@ class DBService:
             for item in data:
                 # 检查这个 ID 是否已经在数据库里了
                 cursor.execute(
-                    "SELECT id, content FROM notices WHERE id = ?", (item["id"],)
+                    "SELECT id, content_text FROM notices WHERE id = ?", (item["id"],)
                 )
                 existing_record = cursor.fetchone()
+                # 在循环内部
+                content_data = item.get("content") or {}  # 如果是 null 则给空字典
+                text = content_data.get("text")
+                # 附件列表转为 JSON 字符串存储
+                attachments = json.dumps(
+                    content_data.get("attachment_urls", []), ensure_ascii=False
+                )
 
                 if not existing_record:
                     # 这是一条全新的通知
                     cursor.execute(
                         """
-                        INSERT INTO notices (id, label, title, date, detail_url, is_page, content, is_pushed)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        INSERT INTO notices (id, label, title, date, detail_url, is_page, content_text, attachments, is_pushed)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                         (
                             item["id"],
@@ -78,7 +83,8 @@ class DBService:
                             item["date"],
                             item["detail_url"],
                             item["is_page"],
-                            item.get("content"),
+                            text,
+                            attachments,
                             0,  # 新通知默认为未推送
                         ),
                     )
@@ -86,10 +92,10 @@ class DBService:
                 else:
                     # 记录存在，但这可能是因为爬虫一开始抓不到正文(content为null)，
                     # 后来重新抓取时才拿到了正文，所以我们要支持"更新 content"
-                    if item.get("content") and not existing_record["content"]:
+                    if text and not existing_record["content_text"]:
                         cursor.execute(
-                            "UPDATE notices SET content = ? WHERE id = ?",
-                            (item["content"], item["id"]),
+                            "UPDATE notices SET content_text = ?, attachments = ? WHERE id = ?",
+                            (text, attachments, item["id"]),
                         )
                         updated_notices_count += 1
 
@@ -119,7 +125,8 @@ class DBService:
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                "SELECT title, content, date FROM notices WHERE id = ?", (notice_id,)
+                "SELECT title, content_text, date FROM notices WHERE id = ?",
+                (notice_id,),
             )
             row = cursor.fetchone()
             return dict(row) if row else None
@@ -127,3 +134,7 @@ class DBService:
 
 # 单例模式导出，方便全局其他地方使用同一个实例
 db = DBService()
+
+if __name__ == "__main__":
+    db.init_db()
+    db.sync_from_json(NOTICE_JSON)

@@ -9,8 +9,7 @@ wheels/
 # Virtual environments
 .venv
 
-data/*.db
-data/*.json
+data/*
 
 logs/*.log
 
