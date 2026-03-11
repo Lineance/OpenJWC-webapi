@@ -10,7 +10,8 @@ wheels/
 .venv
 
 data/*
-
+!data/.gitkeep
 logs/*.log
-
+!/logs/.gitkeep
 bin/*
+!bin/.gitkeep
