@@ -2,6 +2,7 @@ from app.services.prompt_engine import PromptEngine
 from app.services.vector_db_service import vector_db  # 假设你有个向量数据库服务
 from openai import AsyncOpenAI
 from app.utils.logging_manager import setup_logger
+import asyncio
 import os
 
 logger = setup_logger("ai_service_logs")
@@ -17,7 +18,7 @@ async def get_ai_response(request, use_rag=False):
         # 在这里调用向量数据库检索相关资讯
         try:
             logger.info("尝试从向量数据库检索相关资讯...")
-            context = await vector_db.search(request.user_query)
+            context = await asyncio.to_thread(vector_db.search, request.user_query)
         except Exception as e:
             logger.error(f"向量数据库检索失败: {e}")
             context = None
