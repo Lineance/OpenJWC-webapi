@@ -54,6 +54,32 @@ class ValidationMixin:
 
             return True, "Success"
 
+    def validate_key_and_device(
+        self: DBInterface, key_string: str, device_id: str
+    ) -> tuple[bool, str]:
+        """
+        核心鉴权逻辑：检查 Key 的有效性，校验设备指纹，并增加请求计数。
+        返回值: (是否通过鉴权, 提示信息)
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT id, is_active, max_devices, bound_devices FROM api_keys WHERE key_string = ?",
+                (key_string,),
+            )
+            row = cursor.fetchone()
+            if not row:
+                return False, "该API Key不存在"
+
+            if not row["is_active"]:
+                return False, "该API Key已停用"
+
+            bound_devices = json.loads(row["bound_devices"])
+            if device_id not in bound_devices:
+                return False, "设备不存在"
+
+            return True, "API Key有效且设备存在"
+
     def create_api_key(self: DBInterface, owner_name: str, max_devices: int = 3) -> str:
         """管理员接口：生成一个新的 API Key"""
         # 生成类似 sk-xxxxxx 的随机字符串

@@ -1,3 +1,4 @@
+from typing import Tuple
 from fastapi import Depends, HTTPException, Header, status
 from fastapi.security import (
     HTTPBearer,
@@ -69,3 +70,27 @@ def get_current_admin(token: str = Depends(oauth2_scheme)):
         raise HTTPException(status_code=401, detail="登录已过期")
     except jwt.InvalidTokenError:
         raise credentials_exception
+
+
+async def verify_api_key_and_device(
+    # 自动提取 Authorization Header 中的 Token
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    # 强制要求请求头中必须带上 X-Device-ID
+    x_device_id: str = Header(..., description="移动端设备的唯一标识 UUID"),
+) -> Tuple[str, str]:
+    """检查apikey和device是否存在绑定关系"""
+    token = credentials.credentials
+    is_valid, error_msg = db.validate_key_and_device(token, x_device_id)
+
+    if not is_valid:
+        logger.warning(
+            f"鉴权拦截 - Token: {token[:8]}... 设备: {x_device_id} 原因: {error_msg}"
+        )
+        # 抛出 401 或 403 错误，前端会收到这个状态码
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=error_msg,
+        )
+
+    logger.debug(f"鉴权通过 - Token: {token[:8]}... 设备: {x_device_id}")
+    return token, x_device_id
