@@ -1,11 +1,17 @@
 from typing import Dict, Optional
 from app.services.db_interface import DBInterface, logger
+from app.core.security import get_password_hash
 
 
 class AdminMixin:
     # 管理员鉴权
     def get_admin_user(self: DBInterface, username: str) -> Optional[dict]:
-        """供登录接口验证账号密码使用"""
+        """
+        供登录接口验证账号密码使用
+        接受一个用户名，在sql数据库的admin_users表中查询该用户是否存在
+        :param username: 用户名
+        :return: 如果存在，返回一个字典，包含user_name和hashed_password；如果不存在，返回None
+        """
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
@@ -14,6 +20,38 @@ class AdminMixin:
             )
             row = cursor.fetchone()
             return dict(row) if row else None
+
+    def create_admin(self: DBInterface, username: str, password: str) -> str:
+        """超管方法：创建管理员账号"""
+        hashed_password = get_password_hash(password=password)
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO admin_users (user_name, hashed_password) 
+                VALUES (?, ?)
+                """,
+                (username, hashed_password),
+            )
+            conn.commit()
+            logger.info(f"创建了新的管理员账号：{username}")
+            return "管理员账号创建成功"
+
+    def delete_admin(self: DBInterface, admin_name: str) -> bool:
+        """超管方法：删除一个管理员账号"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            # 先检查存不存在
+            cursor.execute(
+                "SELECT user_name FROM admin_users WHERE user_name = ?", (admin_name,)
+            )
+            if not cursor.fetchone():
+                return False
+
+            cursor.execute("DELETE FROM admin_users WHERE user_name = ?", (admin_name,))
+            conn.commit()
+            logger.info(f"管理员账号 [ID: {admin_name}] 已被永久删除")
+            return True
 
     # 系统设置
     def get_system_setting(

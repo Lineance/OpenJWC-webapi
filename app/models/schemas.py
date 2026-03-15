@@ -1,5 +1,7 @@
-from typing import List, Optional
+from typing import List, Optional, Generic, TypeVar
 from pydantic import BaseModel
+
+T = TypeVar("T")
 
 
 class Message(BaseModel):
@@ -32,3 +34,12 @@ class NoticeListResponse(BaseModel):
     size: int
     total_returned: int  # 本次实际返回的条数
     data: List[NoticeItem]
+
+
+class ResponseModel(BaseModel, Generic[T]):
+    """
+    控制面板通用响应模型
+    """
+
+    msg: str
+    data: Optional[T]

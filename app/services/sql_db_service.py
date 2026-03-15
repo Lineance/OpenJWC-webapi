@@ -95,13 +95,26 @@ class SQLCLI(cmd.Cmd):
 
     def do_create(self, arg: str):
         args = arg.split()
-        new_key = db.create_api_key(owner_name=args[0], max_devices=int(args[1]))
-        logger.info("NEW KEY: " + new_key)
+        if len(args) == 3:
+            if args[0] == "user":
+                new_key = db.create_api_key(
+                    owner_name=args[1], max_devices=int(args[2])
+                )
+                logger.info("NEW KEY: " + new_key)
+            elif args[0] == "admin":
+                logger.info(db.create_admin(username=args[1], password=args[2]))
 
     def do_show(self, arg: str):
         keys = db.get_all_api_keys()
         for key in keys:
             print(key)
+
+    def do_admin(self, arg: str):
+        args = arg.split()
+        if args[0] == "check":
+            logger.info(db.get_admin_user(args[1]))
+        elif args[0] == "delete":
+            logger.info(db.delete_admin(args[1]))
 
     def do_toggle(self, arg: str):
         args = arg.split()
@@ -129,4 +142,3 @@ if __name__ == "__main__":
 
     result = db.sync_from_json(NOTICE_JSON)
     logger.info(f"同步完成: {result}")
-    SQLCLI().cmdloop()
