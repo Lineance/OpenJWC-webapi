@@ -3,10 +3,10 @@ from datetime import datetime, timedelta, timezone
 import jwt
 import bcrypt
 from passlib.context import CryptContext
+from app.core.config import ACCESS_TOKEN_EXPIRE_MINUTES
 
 SECRET_KEY = "your-super-secret-key-change-this-in-production"
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 120
 
 # 密码加密工具
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")

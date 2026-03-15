@@ -46,6 +46,7 @@ class AdminMixin:
                 "SELECT user_name FROM admin_users WHERE user_name = ?", (admin_name,)
             )
             if not cursor.fetchone():
+                logger.warning(f"管理员账号 [ID: {admin_name}] 不存在")
                 return False
 
             cursor.execute("DELETE FROM admin_users WHERE user_name = ?", (admin_name,))
