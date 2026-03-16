@@ -168,6 +168,20 @@ class SQLCLI(cmd.Cmd):
         info = db.get_device_info(key_string=args[0], device_id=args[1])
         print(info)
 
+    def do_set(self, arg: str):
+        """
+        调整系统设置。
+        """
+        args = arg.split()
+        db.update_system_setting(setting_key=args[0], setting_value=args[1])
+        logger.info(f"设置{args[0]}为{args[1]}")
+
+    def do_echo(self, arg: str):
+        """
+        获取系统设置。
+        """
+        print(db.get_all_settings())
+
 
 if __name__ == "__main__":
     import sys
