@@ -98,7 +98,23 @@ class ValidationMixin:
             logger.info(f"生成了新的 API Key: {owner_name}")
             return new_key
 
-    def get_all_api_keys(
+    def get_all_api_keys(self: DBInterface) -> List[dict]:
+        """管理员接口：获取所有用户状态供前端面板展示"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM api_keys ORDER BY created_at DESC")
+            rows = cursor.fetchall()
+
+            results = []
+            for row in rows:
+                r_dict = dict(row)
+                r_dict["bound_devices"] = json.loads(
+                    r_dict["bound_devices"]
+                )  # 把 JSON 字符串转回列表给前端
+                results.append(r_dict)
+            return results
+
+    def get_target_api_keys(
         self: DBInterface, page: int = 1, size: int = 20, keyword: Optional[str] = None
     ) -> Dict:
         """

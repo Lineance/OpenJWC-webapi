@@ -23,4 +23,6 @@ async def get_latest_notices(
     """
     logger.info(f"Request ID: {admin_info['x_request_id']}")
     logger.info(f"Client Version: {admin_info['x_client_version']}")
-    return ResponseModel(msg="请求成功", data=db.get_all_api_keys(page, size, keyword))
+    return ResponseModel(
+        msg="请求成功", data=db.get_target_api_keys(page, size, keyword)
+    )

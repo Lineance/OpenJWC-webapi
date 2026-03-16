@@ -9,12 +9,18 @@ class Message(BaseModel):
     content: str  # 具体的对话内容
 
 
-# 定义请求格式的结构 (Schema)
+# 定义聊天请求格式的结构 (Schema)
 class ChatRequest(BaseModel):
     notice_id: str
     user_query: str
     stream: bool = False
     history: List[Message] = []
+
+
+# 定义创建apikey请求格式的结构 (Schema)
+class CreateApiKeyRequest(BaseModel):
+    owner_name: str
+    max_devices: int
 
 
 # 定义单条资讯的结构

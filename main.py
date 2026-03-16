@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from app.api.v1.client import chat, notices, unbind, device
-from app.api.v1.admin import auth, sysinfo, stats, get_apikeys
+from app.api.v1.admin import auth, sysinfo, stats, get_apikeys, create_apikey
 from app.services.sql_db_service import SQLCLI
 from app.utils.logging_manager import setup_logger
 import os
@@ -25,6 +25,9 @@ app.include_router(stats.router, prefix="/api/v1/admin/monitor", tags=["基本�
 app.include_router(device.router, prefix="/api/v1/client", tags=["设备绑定信息"])
 app.include_router(
     get_apikeys.router, prefix="/api/v1/admin", tags=["获取所有apikeys信息"]
+)
+app.include_router(
+    create_apikey.router, prefix="/api/v1/admin", tags=["创建新的apikey"]
 )
 
 
