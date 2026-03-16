@@ -1,13 +1,13 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends
 from app.models.schemas import ResponseModel
-from app.services.sql_db_service import db
 from app.utils.logging_manager import setup_logger
 from app.api.dependencies import verify_admin_token
 from app.utils.sysinfo_monitor import get_server_status
+from app.api.logging_route import LoggingRoute
 
 logger = setup_logger("sysinfo_logs")
 
-router = APIRouter()
+router = APIRouter(route_class=LoggingRoute)
 
 
 @router.get("/sysinfo", response_model=ResponseModel)

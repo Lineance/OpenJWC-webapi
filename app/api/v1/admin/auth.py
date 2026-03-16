@@ -6,8 +6,9 @@ from app.services.sql_db_service import db
 from app.models.schemas import ResponseModel
 from app.utils.logging_manager import setup_logger
 from app.core.config import ACCESS_TOKEN_EXPIRE_MINUTES
+from app.api.logging_route import LoggingRoute
 
-router = APIRouter()
+router = APIRouter(route_class=LoggingRoute)
 
 logger = setup_logger("admin_auth_logs")
 

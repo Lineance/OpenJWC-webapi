@@ -4,10 +4,11 @@ from app.models.schemas import ResponseModel
 from app.services.sql_db_service import db
 from app.api.dependencies import verify_api_key_and_device
 from app.utils.logging_manager import setup_logger
+from app.api.logging_route import LoggingRoute
 
 logger = setup_logger("device_api_logs")
 
-router = APIRouter()
+router = APIRouter(route_class=LoggingRoute)
 
 
 @router.get("/device", response_model=ResponseModel)

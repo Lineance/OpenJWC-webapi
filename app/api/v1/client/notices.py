@@ -2,10 +2,11 @@ from fastapi import APIRouter, Query
 from app.models.schemas import NoticeListResponse
 from app.services.sql_db_service import db
 from app.utils.logging_manager import setup_logger
+from app.api.logging_route import LoggingRoute
 
 logger = setup_logger("notice_api_logs")
 
-router = APIRouter()
+router = APIRouter(route_class=LoggingRoute)
 
 
 @router.get("/notices", response_model=NoticeListResponse)

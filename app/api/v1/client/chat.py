@@ -4,10 +4,11 @@ from app.models.schemas import ChatRequest
 from app.utils.logging_manager import setup_logger
 from app.api.dependencies import verify_api_key
 import app.services.ai_service as ai_service
+from app.api.logging_route import LoggingRoute
 
 logger = setup_logger("chat_api_logs")
 
-router = APIRouter()
+router = APIRouter(route_class=LoggingRoute)
 
 
 @router.post("/chat")
