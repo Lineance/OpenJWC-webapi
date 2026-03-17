@@ -12,13 +12,27 @@ from app.api.v1.admin import (
 )
 from app.services.sql_db_service import SQLCLI
 from app.utils.logging_manager import setup_logger
+from contextlib import asynccontextmanager
+from app.utils.ping_check import diagnose_network_environment
 import os
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("正在启动服务...")
+    api_targets = ["https://api.deepseek.com", "https://open.bigmodel.cn"]
+    is_network_healthy = await diagnose_network_environment(api_targets)
+    if not is_network_healthy:
+        logger.error("启动警告：关键依赖网络不通，后续 API 调用可能会失败")
+    yield  # 让 FastAPI 继续启动并处理请求
+    logger.info("服务正在关闭...")
+
 
 ROOT_DIR = os.getcwd()
 DATA_DIR = os.path.join(ROOT_DIR, "data")
 BIN_DIR = os.path.join(ROOT_DIR, "bin")
 
-app = FastAPI(title="教务处通知助手")
+app = FastAPI(title="教务处通知助手", lifespan=lifespan)
 logger = setup_logger("main_logs")
 
 

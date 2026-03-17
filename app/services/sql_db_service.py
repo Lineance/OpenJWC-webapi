@@ -1,3 +1,4 @@
+import asyncio
 import sqlite3
 from app.core.config import NOTICE_DB, NOTICE_JSON
 from app.services.db_interface import logger
@@ -5,6 +6,7 @@ from app.services.sql_mixins.notice_mixin import NoticeMixin
 from app.services.sql_mixins.validation_mixin import ValidationMixin
 from app.services.sql_mixins.admin_mixin import AdminMixin
 from app.services.sql_mixins.device_mixin import DeviceMixin
+from app.utils.ping_check import diagnose_network_environment
 from rich import print
 
 import cmd
@@ -181,6 +183,9 @@ class SQLCLI(cmd.Cmd):
         获取系统设置。
         """
         print(db.get_all_settings())
+
+    def do_diagnose(self, arg: str):
+        asyncio.run(diagnose_network_environment())
 
 
 if __name__ == "__main__":

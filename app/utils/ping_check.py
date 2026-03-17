@@ -95,7 +95,7 @@ async def diagnose_network_environment(target_urls: List[str] = None) -> bool:
     for url in target_urls:
         parsed_url = urlparse(url)
         host = parsed_url.hostname
-        logger.info(f"\n📡 正在测试目标: {host}")
+        logger.info(f"\n 正在测试目标: {host}")
 
         tcp_ok, tcp_msg = await check_tcp_connection(host)
         if tcp_ok:
