@@ -5,7 +5,7 @@ from app.services.sql_db_service import db
 from app.utils.logging_manager import setup_logger
 from app.api.dependencies import verify_admin_token
 from app.api.logging_route import LoggingRoute
-from app.core.security import get_password_hash
+from app.core.security import verify_password
 
 logger = setup_logger("modify_password_logs")
 
@@ -22,10 +22,9 @@ async def toggle_apikey(
     """
     logger.info(f"Request ID: {admin_info['x_request_id']}")
     logger.info(f"Client Version: {admin_info['x_client_version']}")
-    hashed_old_password = get_password_hash(settings["old_password"])
     admin = db.get_admin_user(admin_info["username"])
     if admin:
-        if hashed_old_password == admin["hashed_password"]:
+        if verify_password(settings["old_password"], admin["hashed_password"]):
             db.modify_password(admin_info["username"], settings["new_password"])
             return ResponseModel(msg="修改成功", data={})
         else:
