@@ -10,10 +10,6 @@ logger = setup_logger("get_settings_logs")
 router = APIRouter(route_class=LoggingRoute)
 
 
-# TODO: 获取信息之前先根据config同步设置数据库。
-# - 前置要求：写一个专门的数据库方法。
-
-
 @router.get("/settings", response_model=ResponseModel)
 async def get_latest_notices(
     admin_info: dict = Depends(verify_admin_token),
@@ -21,6 +17,7 @@ async def get_latest_notices(
     """
     获取系统设置信息。
     """
+    db._sync_settings()
     logger.info(f"Request ID: {admin_info['x_request_id']}")
     logger.info(f"Client Version: {admin_info['x_client_version']}")
     return ResponseModel(msg="请求成功", data=db.get_all_settings())

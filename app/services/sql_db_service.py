@@ -184,6 +184,12 @@ class SQLCLI(cmd.Cmd):
         """
         print(db.get_all_settings())
 
+    def do_sync(self, arg: str):
+        """
+        同步系统设置。
+        """
+        db._sync_settings()
+
     def do_diagnose(self, arg: str):
         asyncio.run(diagnose_network_environment())
 

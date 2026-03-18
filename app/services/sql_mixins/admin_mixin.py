@@ -1,7 +1,7 @@
 from typing import Dict, Optional
 from app.services.db_interface import DBInterface, logger
 from app.core.security import get_password_hash
-from app.core.config import ALLOWED_KEYS
+from app.core.config import ALLOWED_SETTINGS
 
 
 class AdminMixin:
@@ -69,17 +69,36 @@ class AdminMixin:
             row = cursor.fetchone()
             return row["setting_value"] if row else default_value
 
-    def _sync_settings(self: DBInterface):
-        """从ALLOWED_SETTINGS中中同步所有允许的配置项到数据库"""
-
-    def _remove_setting(self: DBInterface, setting_key: str):
-        """删除指定的系统设置项"""
+    def _sync_settings(
+        self: DBInterface,
+    ):
+        """从ALLOWED_SETTINGS中同步所有允许的配置项到数据库"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute(
-                "DELETE FROM system_settings WHERE setting_key = ?", (setting_key,)
-            )
+            cursor.execute("SELECT setting_key FROM system_settings")
+            existing_keys = {row[0] for row in cursor.fetchall()}
+            allowed_keys = set(ALLOWED_SETTINGS.keys())
+            keys_to_delete = existing_keys - allowed_keys
+            if keys_to_delete:
+                placeholders = ",".join("?" for _ in keys_to_delete)
+                cursor.execute(
+                    f"DELETE FROM system_settings WHERE setting_key IN ({placeholders})",
+                    tuple(keys_to_delete),
+                )
+                logger.info(f"已删除无效的系统配置: {keys_to_delete}")
+            keys_to_insert = allowed_keys - existing_keys
+            if keys_to_insert:
+                insert_data = [(key, ALLOWED_SETTINGS[key]) for key in keys_to_insert]
+                cursor.executemany(
+                    "INSERT INTO system_settings (setting_key, setting_value) VALUES (?, ?)",
+                    insert_data,
+                )
+                logger.info(
+                    f"已注册并初始化新的系统配置: {[k for k in keys_to_insert]}"
+                )
+
             conn.commit()
+            logger.info("系统配置同步完成。")
 
     def get_all_settings(self: DBInterface) -> Dict[str, str]:
         """获取所有配置，供后台面板一次性展示"""

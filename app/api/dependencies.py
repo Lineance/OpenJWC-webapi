@@ -49,7 +49,6 @@ async def verify_api_key(
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/admin/auth/login")
 
 
-# TODO: 这是一个用来验证jwt token的代码，使用之前应该先完成管理员登录接口。
 def verify_admin_token(
     token: str = Depends(oauth2_scheme),
     x_client_version: str = Header(default="1.0.0"),
