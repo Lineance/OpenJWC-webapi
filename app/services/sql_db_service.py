@@ -190,6 +190,14 @@ class SQLCLI(cmd.Cmd):
         """
         db._sync_settings()
 
+    def do_reset(self, arg: str):
+        args = arg.split()
+        if args:
+            for setting in args:
+                db.reset_system_setting(setting)
+        else:
+            db.reset_all_settings()
+
     def do_diagnose(self, arg: str):
         asyncio.run(diagnose_network_environment())
 

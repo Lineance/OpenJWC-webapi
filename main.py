@@ -10,6 +10,7 @@ from app.api.v1.admin import (
     delete_apikey,
     get_settings,
     update_setting,
+    reset_settings,
 )
 from app.services.sql_db_service import SQLCLI
 from app.utils.logging_manager import setup_logger
@@ -63,6 +64,9 @@ app.include_router(
 app.include_router(update_setting.router, prefix="/api/v1/admin", tags=["修改系统设置"])
 app.include_router(
     get_labels.router, prefix="/api/v1/client/notices", tags=["获取所有标签"]
+)
+app.include_router(
+    reset_settings.router, prefix="/api/v1/admin/settings", tags=["重置系统设置"]
 )
 
 

@@ -139,3 +139,31 @@ class AdminMixin:
                 "total_notices": total_notices,
                 "active_api_keys": active_keys,
             }
+
+    def reset_system_setting(self: DBInterface, setting_key: str) -> bool:
+        """
+        将指定设置重置为 ALLOWED_SETTINGS 中的默认值
+        """
+        if setting_key not in ALLOWED_SETTINGS:
+            logger.error(f"尝试重置不存在的配置项: {setting_key}")
+            return False
+
+        default_value = ALLOWED_SETTINGS[setting_key]
+        self.update_system_setting(setting_key, default_value)
+        logger.info(f"系统配置已重置为默认值: {setting_key}")
+        return True
+
+    def reset_all_settings(self: DBInterface):
+        """
+        将所有设置重置为 ALLOWED_SETTINGS 中的默认值
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            # 使用 executemany 进行批量更新，效率更高
+            update_data = [(value, key) for key, value in ALLOWED_SETTINGS.items()]
+            cursor.executemany(
+                "UPDATE system_settings SET setting_value = ? WHERE setting_key = ?",
+                update_data,
+            )
+            conn.commit()
+            logger.info("所有系统配置已重置为默认值")
