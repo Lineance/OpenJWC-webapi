@@ -11,8 +11,8 @@ LOGS_DIR = ROOT_DIR / "logs"
 MAX_DAY_DIFF = 300
 ACCESS_TOKEN_EXPIRE_MINUTES = 5
 ALLOWED_SETTINGS = {
-    "deepseek_api_key": "This_is_your_apikey_for_deepseek",
-    "zhipu_api_key": "This_is_your_apikey_for_zhipu",
+    "deepseek_api_key": "sk-52a7c611c8a54542ba2f4325377279ee",
+    "zhipu_api_key": "76aef7991f3b44689985247df4177797.yVOdY7eqKISkhT02",
     "crawler_interval_minutes": 60 * 8,
     "system_prompt": """
 你是一个教务处智能助手，请你在回答问题之前务必遵守以下守则：

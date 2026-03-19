@@ -8,10 +8,10 @@ from app.api.dependencies import verify_api_key
 
 logger = setup_logger("notice_api_logs")
 
-router = APIRouter(route_class=LoggingRoute)
+router = APIRouter(prefix="/notices", route_class=LoggingRoute)
 
 
-@router.get("/notices", response_model=ResponseModel)
+@router.get("", response_model=ResponseModel)
 async def get_latest_notices(
     label: Annotated[str | None, Query(description="可选的指定标签")] = None,
     page: int = Query(1, ge=1, description="返回的页码"),
@@ -32,3 +32,14 @@ async def get_latest_notices(
             "notices": notices,
         },
     )
+
+
+# TODO: 获取所有标签的接口。
+@router.get("/labels", response_model=ResponseModel)
+async def get_notices_labels(
+    valid_token: str = Depends(verify_api_key),
+):
+    """
+    获取所有标签。
+    """
+    return ResponseModel(msg="获取成功", data={"labels": db.get_labels()})

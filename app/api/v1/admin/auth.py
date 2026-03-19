@@ -1,5 +1,4 @@
-# app/api/v1/admin/auth.py
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from fastapi.security import OAuth2PasswordRequestForm
 from app.core.security import verify_password, create_access_token
 from app.services.sql_db_service import db
@@ -8,7 +7,7 @@ from app.utils.logging_manager import setup_logger
 from app.core.config import ACCESS_TOKEN_EXPIRE_MINUTES
 from app.api.logging_route import LoggingRoute
 
-router = APIRouter(route_class=LoggingRoute)
+router = APIRouter(prefix="/auth", route_class=LoggingRoute)
 
 logger = setup_logger("admin_auth_logs")
 

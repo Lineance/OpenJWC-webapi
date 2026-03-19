@@ -8,7 +8,6 @@ import logging
 from app.models.schemas import ChatRequest
 from app.services.sql_db_service import db
 import asyncio
-import os
 import httpx
 
 from tenacity import (

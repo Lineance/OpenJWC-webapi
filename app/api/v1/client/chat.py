@@ -8,10 +8,10 @@ from app.api.logging_route import LoggingRoute
 
 logger = setup_logger("chat_api_logs")
 
-router = APIRouter(route_class=LoggingRoute)
+router = APIRouter(prefix="/chat", route_class=LoggingRoute)
 
 
-@router.post("/chat")
+@router.post("")
 async def chat_with_notice(
     request: ChatRequest, valid_token: str = Depends(verify_api_key)
 ):
