@@ -1,7 +1,7 @@
 import json
 import sqlite3
 from app.services.db_interface import DBInterface
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple, Optional
 from app.utils.logging_manager import setup_logger
 from app.models.schemas import SubmissionRequest
 
@@ -52,6 +52,45 @@ class SubmissionMixin:
             rows = cursor.fetchall()
             return [dict(row) for row in rows]
 
+    def get_submissions_for_admin(
+        self: DBInterface,
+        limit: int = 20,
+        offset: int = 0,
+        status: Optional[str] = None,
+    ) -> Tuple[int, List[dict]]:
+        """按页数获取提交信息列表，供控制面板处理待审核提交。"""
+        with self.get_connection() as conn:
+            count_query = "SELECT COUNT(*) FROM submissions"
+            count_params = []
+            if status is not None:
+                count_query += " WHERE status = ? "
+                count_params.append(status)
+            cursor = conn.cursor()
+            cursor.execute(count_query, tuple(count_params))
+            total_count = cursor.fetchone()[0]
+            query = """
+                SELECT id, label, title, date, detail_url, is_page, status 
+                FROM submissions 
+            """
+            params = []
+            if status is not None:
+                query += " WHERE status = ? "
+                params.append(status)
+            query += " ORDER BY date DESC, id DESC LIMIT ? OFFSET ? "
+            params.extend([limit, offset])
+
+            cursor.execute(query, tuple(params))
+            rows = cursor.fetchall()
+            results = []
+            for row in rows:
+                item = dict(row)
+                item["is_page"] = bool(item["is_page"])
+                results.append(item)
+            logger.info(
+                f"提交查询成功 (status: {status}, total: {total_count}, count: {len(results)})"
+            )
+            return total_count, results
+
     def update_submission_status(
         self: DBInterface, sub_id: int, status: str, review: str = ""
     ) -> bool:
@@ -67,7 +106,7 @@ class SubmissionMixin:
             conn.commit()
             return cursor.rowcount > 0
 
-    def get_submission_by_id(self: DBInterface, sub_id: int) -> Dict[str, Any] | None:
+    def get_submission_by_id(self: DBInterface, sub_id: str) -> Dict[str, Any] | None:
         """获取单个提交的详细信息"""
         sql = "SELECT * FROM submissions WHERE id = ?"
         with self.get_connection() as conn:
@@ -75,7 +114,12 @@ class SubmissionMixin:
             cursor = conn.cursor()
             cursor.execute(sql, (sub_id,))
             row = cursor.fetchone()
-            return dict(row) if row else None
+            if row:
+                item = dict(row)
+                item["attachments"] = json.loads(item["attachments"])
+                return item
+            else:
+                return None
 
     def get_submission_by_apikey(
         self: DBInterface, apikey: str
