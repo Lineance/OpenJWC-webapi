@@ -54,3 +54,24 @@ class ResponseModel(BaseModel, Generic[T]):
 
     msg: str
     data: Optional[T]
+
+
+class SubmissionContent(BaseModel):
+    """附带的链接"""
+
+    attachment_urls: List[str]
+    """正文"""
+    text: str
+
+
+class SubmissionRequest(BaseModel):
+    content: SubmissionContent
+    """资讯发布日期"""
+    date: str
+    """详细url"""
+    detail_url: str
+    is_page: bool
+    """资讯标签"""
+    label: str
+    """资讯标题"""
+    title: str

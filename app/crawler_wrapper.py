@@ -1,6 +1,7 @@
 # app/worker.py
 import time
 import subprocess
+from datetime import date, timedelta
 
 from app.core.config import DATA_DIR, CRAWLER_BIN, NOTICE_JSON
 from app.services.sql_db_service import db
@@ -45,7 +46,18 @@ def run_crawler_job():
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     try:
         # 1. 组装命令: ./jwc-crawler -o /绝对路径/data/output.json
-        cmd = [str(CRAWLER_BIN), "-o", str(NOTICE_JSON)]
+        cmd = [
+            str(CRAWLER_BIN),
+            "-o",
+            str(NOTICE_JSON),
+            "-d",
+            str(
+                (
+                    date.today()
+                    - timedelta(days=int(db.get_system_setting("crawler_days_gap")))
+                ).strftime("%Y-%m-%d"),
+            ),
+        ]
         logger.info(f"正在执行命令: {' '.join(cmd)}")
 
         # subprocess.run 会阻塞 Python 脚本，直到 Rust 爬虫运行结束

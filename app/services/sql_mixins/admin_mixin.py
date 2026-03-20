@@ -175,6 +175,7 @@ class AdminMixin:
         """
         将所有设置重置为 ALLOWED_SETTINGS 中的默认值
         """
+        self._sync_settings()
         with self.get_connection() as conn:
             cursor = conn.cursor()
             # 使用 executemany 进行批量更新，效率更高

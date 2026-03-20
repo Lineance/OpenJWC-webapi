@@ -232,5 +232,6 @@ if __name__ == "__main__":
     else:
         db.init_db()
 
+    db._sync_settings()
     result = db.sync_from_json(NOTICE_JSON)
     logger.info(f"同步完成: {result}")

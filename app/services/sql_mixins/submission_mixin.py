@@ -2,17 +2,20 @@ import sqlite3
 from app.services.db_interface import DBInterface
 from typing import List, Dict, Any
 from app.utils.logging_manager import setup_logger
-from app.models.models import SubmissionData
+from app.models.schemas import SubmissionRequest
 
 logger = setup_logger("submission_db_logs")
 
-# TODO:
-# 对齐数据表字段，submission统一通过SubmissionData数据接口通讯
-
 
 class SubmissionMixin:
-    def create_submission(self: DBInterface, submission: SubmissionData) -> int | None:
-        """客户端：提交一条新资讯"""
+    def create_submission(
+        self: DBInterface, submission: SubmissionRequest, submitter_id: str
+    ) -> int | None:
+        """
+        客户端：提交一条新资讯
+        submission为客户端传来的请求体
+        submitter_id为客户端的apikey
+        """
         sql = """
             INSERT INTO submissions (label, title, date, detail_url, is_page,  content_text, attachments, submitter_id)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -27,9 +30,9 @@ class SubmissionMixin:
                     submission.date,
                     submission.detail_url,
                     submission.is_page,
-                    submission.content_text,
-                    submission.attachments,
-                    submission.submitter_id,
+                    submission.content.text,
+                    submission.content.attachment_urls,
+                    submitter_id,
                 ),
             )
             conn.commit()
@@ -54,7 +57,7 @@ class SubmissionMixin:
         """WebUI管理端：更新审核状态"""
         sql = """
             UPDATE submissions 
-            SET status = ?, reject_reason = ?, updated_at = CURRENT_TIMESTAMP 
+            SET status = ?, review = ?, updated_at = CURRENT_TIMESTAMP 
             WHERE id = ?
         """
         with self.get_connection() as conn:

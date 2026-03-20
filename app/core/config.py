@@ -14,6 +14,7 @@ ALLOWED_SETTINGS = {
     "deepseek_api_key": "sk-52a7c611c8a54542ba2f4325377279ee",
     "zhipu_api_key": "76aef7991f3b44689985247df4177797.yVOdY7eqKISkhT02",
     "crawler_interval_minutes": 60 * 8,
+    "crawler_days_gap": 200,
     "system_prompt": """
 你是一个教务处智能助手，请你在回答问题之前务必遵守以下守则：
 - 用户是向你询问信息的，所以你在任何情景下不应该说出“根据你所给出的信息”这样的语句。

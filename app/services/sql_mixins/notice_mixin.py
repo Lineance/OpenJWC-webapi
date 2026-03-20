@@ -131,7 +131,7 @@ class NoticeMixin:
             cursor.execute(count_query, tuple(count_params))
             total_count = cursor.fetchone()[0]
             query = """
-                SELECT id, label, title, date, detail_url, is_page 
+                SELECT id, label, title, date, detail_url, is_page, content_text, attachments 
                 FROM notices 
             """
             params = []
@@ -147,6 +147,7 @@ class NoticeMixin:
             for row in rows:
                 item = dict(row)
                 item["is_page"] = bool(item["is_page"])
+                item["attachments"] = json.loads(item["attachments"])
                 results.append(item)
             logger.info(
                 f"资讯查询成功 (label: {label}, total: {total_count}, count: {len(results)})"

@@ -12,18 +12,3 @@ class SysinfoData(BaseModel):
     ram_used_mb: str
     """服务运行时间"""
     uptime_seconds: str
-
-
-class SubmissionData(BaseModel):
-    """资讯提交数据"""
-
-    label: str
-    title: str
-    date: str
-    detail_url: str
-    is_page: bool
-    content_text: str
-    attachments: str
-    submitter_id: str
-    status: str
-    review: str
