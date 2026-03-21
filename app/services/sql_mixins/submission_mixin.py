@@ -138,7 +138,7 @@ class SubmissionMixin:
             for row in rows:
                 result.append(
                     {
-                        "id": row["id"],
+                        "id": str(row["id"]),
                         "label": row["label"],
                         "title": row["title"],
                         "date": row["date"],
