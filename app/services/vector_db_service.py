@@ -1,4 +1,3 @@
-import os
 import logging
 import chromadb
 from app.services.sql_db_service import db
@@ -10,7 +9,7 @@ from zhipuai.core._errors import (
     APIInternalError,
     APIReachLimitError,
 )
-from datetime import datetime
+from datetime import datetime, timedelta
 from app.utils.logging_manager import setup_logger
 from app.core.config import MAX_DAY_DIFF
 
@@ -93,16 +92,21 @@ class VectorDBService:
             metadatas=[metadata],
         )
 
-    def search(self, query: str, n_results: int = 5):
+    def search(self, query: str, n_results: int = 10):
         """语义搜索"""
         query_vector = self.get_embedding(f"{query}, 今日日期{date.today()}")
-        results = collection.query(query_embeddings=[query_vector], n_results=n_results)
-
-        # 安全隐患修复：如果数据库为空，results["documents"][0] 会报错 IndexError
+        cutoff_date = date.today() - timedelta(
+            days=db.get_system_setting("search_max_day_diff")
+        )
+        cutoff_date_str = cutoff_date.strftime("%Y-%m-%d")
+        where_clause = {"date": {"$gte": cutoff_date_str}}
+        results = collection.query(
+            query_embeddings=[query_vector], n_results=n_results, where=where_clause
+        )
         if not results.get("documents") or not results["documents"][0]:
             logger.warning("知识库中暂无相关资讯")
             return "知识库中暂无相关资讯"
-        logger.info(f"搜索到 {len(results['documents'])} 条相关资讯")
+        logger.info(f"搜索到 {len(results['documents'][0])} 条相关资讯")
         return "\n".join(results["documents"][0])
 
     def process_and_index_notice(self, notice: dict):
@@ -130,7 +134,7 @@ class VectorDBService:
             return False
         chunk_size = 500
         chunks = [
-            f"资讯标题：{notice['title']};资讯日期：{notice['date']};资讯正文：{content[max(i - 100, 0) : min(i + chunk_size + 100, len(content))]}"
+            f"资讯标题：{notice['title']};资讯日期：{notice['date']};资讯正文：{content[max(i - 50, 0) : min(i + chunk_size + 50, len(content))]}"
             for i in range(0, len(content), chunk_size)
         ]
         logger.info(f"开始处理并向量化新资讯 [{notice['title']}]...")
@@ -140,8 +144,12 @@ class VectorDBService:
             self.add_chunk(
                 chunk_id=chunk_id,
                 child_content=chunk,
-                parent_content=notice["content_text"],
-                metadata={"source_id": notice_id, "title": notice["title"]},
+                parent_content=chunk,
+                metadata={
+                    "source_id": notice_id,
+                    "title": notice["title"],
+                    "date": notice["date"],
+                },
             )
         logger.info(f"资讯 [{notice['title']}] 入库完成。")
         return True

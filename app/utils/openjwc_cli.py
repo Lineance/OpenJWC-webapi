@@ -5,6 +5,7 @@ from app.utils.logging_manager import setup_logger
 from rich import print
 import cmd2
 import asyncio
+from app.crawler_wrapper import run_crawler_job
 
 logger = setup_logger("cli_logs")
 
@@ -168,3 +169,6 @@ class SQLCLI(cmd2.Cmd):
         args = arg.split()
         for table in args:
             db.drop_table(table)
+
+    def do_crawl(self, arg: str):
+        run_crawler_job()
