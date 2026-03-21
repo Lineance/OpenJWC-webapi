@@ -5,7 +5,7 @@ from app.utils.logging_manager import setup_logger
 logger = setup_logger("audit_service")
 
 
-def audit_and_import_submission(submission_id: str, status: str, review) -> bool:
+def audit_and_import_submission(submission_id: str, status: str, review: str) -> bool:
     """
     通过一个submissions中的投稿并将其入库。
     """

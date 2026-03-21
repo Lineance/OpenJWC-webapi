@@ -209,6 +209,9 @@ class NoticeMixin:
                 INSERT INTO notices (id, label, title, date, detail_url, is_page, content_text, attachments, is_pushed)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """
+            attachments = json.dumps(
+                notice_data.get("attachment_urls", []), ensure_ascii=False
+            )
             cursor.execute(
                 insert_sql,
                 (
@@ -219,7 +222,7 @@ class NoticeMixin:
                     notice_data.get("detail_url"),
                     notice_data.get("is_page", 0),
                     notice_data["content_text"],
-                    notice_data.get("attachments", "[]"),
+                    attachments,
                     0,
                 ),
             )

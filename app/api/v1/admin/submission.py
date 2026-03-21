@@ -5,6 +5,7 @@ from app.utils.logging_manager import setup_logger
 from app.api.logging_route import LoggingRoute
 from typing import Annotated
 from app.api.dependencies import verify_admin_token
+from app.services.submission_service import audit_and_import_submission
 
 logger = setup_logger("admin_submission_logs")
 
@@ -63,5 +64,5 @@ async def update_submission_status(
     """
     logger.info(f"Request ID: {admin_info['x_request_id']}")
     logger.info(f"Client Version: {admin_info['x_client_version']}")
-    db.update_submission_status(id, request.action, request.review)
+    audit_and_import_submission(id, request.action, request.review)
     return ResponseModel(msg="修改成功", data={})

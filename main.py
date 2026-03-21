@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from app.api.v1.api_router import client_router, admin_router
-from app.services.sql_db_service import SQLCLI
+from app.utils.openjwc_cli import SQLCLI
 from app.utils.logging_manager import setup_logger
 from contextlib import asynccontextmanager
 from app.utils.ping_check import diagnose_network_environment
