@@ -80,18 +80,20 @@ class VectorDBService:
             logger.info(f"资讯未处理{source_notice_id}，将进行向量化处理")
             return False
 
-    def add_chunk(self, chunk_id: str, content: str, metadata: dict):
+    def add_chunk(
+        self, chunk_id: str, child_content: str, parent_content: str, metadata: dict
+    ):
         logger.info(f"正在为 Chunk {chunk_id} 生成 Embedding (消耗 Token)...")
-        vector = self.get_embedding(content)
+        vector = self.get_embedding(child_content)
 
         collection.upsert(
             ids=[chunk_id],
             embeddings=[vector],
-            documents=[content],
+            documents=[parent_content],
             metadatas=[metadata],
         )
 
-    def search(self, query: str, n_results: int = 10):
+    def search(self, query: str, n_results: int = 5):
         """语义搜索"""
         query_vector = self.get_embedding(f"{query}, 今日日期{date.today()}")
         results = collection.query(query_embeddings=[query_vector], n_results=n_results)
@@ -122,13 +124,14 @@ class VectorDBService:
         if diff.days > MAX_DAY_DIFF:
             logger.info(f"资讯发布日期距今已有{MAX_DAY_DIFF}天，认作旧闻而跳过。")
             return False
-        content = f"资讯标题：{notice['title']};资讯日期：{notice['date']};资讯正文：{notice['content_text']}"
+        content = notice["content_text"]
         if content is None:
             logger.info(f"资讯[{notice['title']}]无正文信息，跳过")
             return False
         chunk_size = 500
         chunks = [
-            content[i : i + chunk_size] for i in range(0, len(content), chunk_size)
+            f"资讯标题：{notice['title']};资讯日期：{notice['date']};资讯正文：{content[max(i - 100, 0) : min(i + chunk_size + 100, len(content))]}"
+            for i in range(0, len(content), chunk_size)
         ]
         logger.info(f"开始处理并向量化新资讯 [{notice['title']}]...")
         for i, chunk in enumerate(chunks):
@@ -136,7 +139,8 @@ class VectorDBService:
             # 存入向量库
             self.add_chunk(
                 chunk_id=chunk_id,
-                content=chunk,
+                child_content=chunk,
+                parent_content=notice["content_text"],
                 metadata={"source_id": notice_id, "title": notice["title"]},
             )
         logger.info(f"资讯 [{notice['title']}] 入库完成。")
