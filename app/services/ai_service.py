@@ -53,7 +53,7 @@ async def call_llm_with_retry(messages: list, stream: bool):
 async def get_ai_response(request: ChatRequest, use_rag=False):
     context = ""
     if request.notice_ids:
-        context += "\n用户指定了以下资讯，请你对这一资讯的信息更加注意："
+        context += "\n用户指定了以下资讯，请你对这些资讯的信息更加注意。请你格外注意站在用户的视角看待资讯，用户只能看到他们自己选中的资讯。所以用户问题中的一些代词可能特指他们自己选中的资讯："
         for notice_id in request.notice_ids:
             target_notice = db.get_notice_content(notice_id)
             if target_notice:
@@ -65,9 +65,7 @@ async def get_ai_response(request: ChatRequest, use_rag=False):
         if context != "":
             try:
                 logger.info("尝试从向量数据库检索相关资讯...")
-                context += (
-                    "\n以下是和用户需求可能相关的资讯。请你更多关注用户指定的资讯。\n"
-                )
+                context += "\n以下是通过知识库获取的和用户需求可能相关的资讯。请你更多关注用户指定的资讯。\n"
                 context += await asyncio.to_thread(
                     vector_db.search, request.user_query, 3
                 )
@@ -76,7 +74,7 @@ async def get_ai_response(request: ChatRequest, use_rag=False):
         else:
             try:
                 logger.info("尝试从向量数据库检索相关资讯...")
-                context += "\n以下是和用户需求相关的部分资讯。请注意提示用户你可能并没有获取所有必需的资讯。\n"
+                context += "\n以下是通过知识库获取的和用户需求相关的部分资讯。请注意提示用户你可能并没有获取所有必需的资讯。\n"
                 context += await asyncio.to_thread(
                     vector_db.search, request.user_query, 10
                 )

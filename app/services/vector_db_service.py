@@ -92,7 +92,7 @@ class VectorDBService:
             metadatas=[metadata],
         )
 
-    def search(self, query: str, n_results: int = 10):
+    def search(self, query: str, n_results: int = 10) -> str:
         """语义搜索"""
         query_vector = self.get_embedding(f"{query}, 今日日期{date.today()}")
         cutoff_date = date.today() - timedelta(
