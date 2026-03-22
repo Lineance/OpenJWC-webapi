@@ -26,8 +26,11 @@ class PromptEngine:
 
         messages.insert(0, {"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": user_query})
+        preview_length = int(db.get_system_setting("prompt_preview_length"))
         preview_prompt = (
-            system_prompt if len(system_prompt) <= 100 else system_prompt[:100] + "..."
+            system_prompt
+            if len(system_prompt) <= preview_length
+            else system_prompt[:preview_length] + "..."
         )
         logger.info(f"已注入系统提示词：{preview_prompt}")
         logger.debug(messages)

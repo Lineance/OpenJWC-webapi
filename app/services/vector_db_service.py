@@ -96,7 +96,7 @@ class VectorDBService:
         """语义搜索"""
         query_vector = self.get_embedding(f"{query}, 今日日期{date.today()}")
         cutoff_date = date.today() - timedelta(
-            days=db.get_system_setting("search_max_day_diff")
+            days=int(db.get_system_setting("search_max_day_diff"))
         )
         cutoff_date_str = cutoff_date.strftime("%Y-%m-%d")
         cutoff_date_int = int(cutoff_date.strftime("%Y%m%d"))
