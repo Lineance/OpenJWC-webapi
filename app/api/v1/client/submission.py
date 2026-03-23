@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends
+from fastapi.responses import JSONResponse
 from app.models.schemas import SubmissionRequest, ResponseModel
 from app.utils.logging_manager import setup_logger
 from app.api.dependencies import verify_api_key
@@ -17,8 +18,17 @@ router = APIRouter(prefix="/submissions", route_class=LoggingRoute)
 async def client_submission(
     request: SubmissionRequest, valid_token: str = Depends(verify_api_key)
 ):
-    db.create_submission(request, valid_token)
-    return ResponseModel(msg="提交成功", data={})
+    success = db.create_submission(request, valid_token)
+    if success:
+        return ResponseModel(msg="提交成功", data={})
+    else:
+        return JSONResponse(
+            status_code=422,
+            content={
+                "msg": f"正文文字量超过上限:{db.get_system_setting('submission_max_length')}",
+                "data": {},
+            },
+        )
 
 
 @router.get("/my")

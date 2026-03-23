@@ -18,6 +18,7 @@ ALLOWED_SETTINGS = {
     "search_max_day_diff": 60,
     "prompt_debug": False,
     "prompt_preview_length": 500,
+    "submission_max_length": 10000,
     "system_prompt": """
 你是一个教务处智能助手，请你在回答问题之前务必遵守以下守则：
 - 用户是向你询问信息的，所以你在任何情景下不应该说出“根据你所给出的信息”这样的语句。

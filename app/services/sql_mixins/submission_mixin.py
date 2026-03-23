@@ -12,7 +12,7 @@ logger = setup_logger("submission_db_logs")
 class SubmissionMixin:
     def create_submission(
         self: DBInterface, submission: SubmissionRequest, submitter_id: str
-    ) -> str:
+    ) -> bool:
         """
         客户端：提交一条新资讯
         submission为客户端传来的请求体
@@ -27,6 +27,13 @@ class SubmissionMixin:
             INSERT INTO submissions (id, label, title, date, detail_url, is_page, content_text, attachments, submitter_id)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
+        if len(submission.content.text) > int(
+            self.get_system_setting("submission_max_length")
+        ):
+            logger.warning(
+                f"用户投稿文字量超过最大限制：{int(self.get_system_setting('submission_max_length'))}"
+            )
+            return False
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
@@ -45,7 +52,7 @@ class SubmissionMixin:
             )
             conn.commit()
             logger.info(f"收到新资讯提交, ID: {submission_id}")
-            return submission_id
+            return True
 
     def get_submissions_by_status(
         self: DBInterface, status: str = "pending"

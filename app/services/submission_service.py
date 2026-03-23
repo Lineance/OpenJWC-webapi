@@ -25,6 +25,12 @@ def audit_and_import_submission(submission_id: str, status: str, review: str) ->
             "attachments": submission_dict.get("attachments") or "[]",
         }
 
+        if len(notice_data["content_text"]) > int(
+            db.get_system_setting("submission_max_length")
+        ):
+            logger.warning("该投稿文字量过大，已拦截入库。")
+            return False
+
         is_inserted = db.insert_notice_from_dict(notice_data)
         if not is_inserted:
             logger.warning(
