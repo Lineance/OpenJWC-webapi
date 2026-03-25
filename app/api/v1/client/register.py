@@ -10,7 +10,5 @@ router = APIRouter(prefix="/register", route_class=LoggingRoute)
 
 
 @router.post("", response_model=ResponseModel)
-async def chat_with_notice(
-    request: ChatRequest, valid_token: str = Depends(verify_api_key)
-):
+async def register_device(valid_token: str = Depends(verify_api_key)):
     return ResponseModel(msg="设备注册成功", data={})
