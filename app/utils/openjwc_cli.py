@@ -6,6 +6,7 @@ from rich import print
 import cmd2
 import asyncio
 from app.crawler_wrapper import run_crawler_job
+from datetime import date
 
 logger = setup_logger("cli_logs")
 
@@ -172,3 +173,9 @@ class SQLCLI(cmd2.Cmd):
 
     def do_crawl(self, arg: str):
         run_crawler_job()
+
+    def do_newmotto(self, arg: str):
+        if db.replace_motto_from_hitokoto(date.today().strftime("%Y-%m-%d")):
+            logger.info("success.")
+        else:
+            logger.warning("fail.")

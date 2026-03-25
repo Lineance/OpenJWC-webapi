@@ -1,4 +1,4 @@
-from app.api.v1.client import device, chat, notices, submission
+from app.api.v1.client import device, chat, notices, submission, motto
 from app.api.v1.admin import auth, settings, monitor, apikeys, logs
 from app.api.v1.admin import notices as admin_notices
 from app.api.v1.admin import submission as admin_submission
@@ -10,6 +10,7 @@ client_router.include_router(device.router)
 client_router.include_router(chat.router)
 client_router.include_router(notices.router)
 client_router.include_router(submission.router)
+client_router.include_router(motto.router)
 
 admin_router = APIRouter(prefix="/admin")
 

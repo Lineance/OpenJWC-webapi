@@ -6,9 +6,12 @@ from app.services.sql_mixins.validation_mixin import ValidationMixin
 from app.services.sql_mixins.admin_mixin import AdminMixin
 from app.services.sql_mixins.device_mixin import DeviceMixin
 from app.services.sql_mixins.submission_mixin import SubmissionMixin
+from app.services.sql_mixins.motto_mixin import MottoMixin
 
 
-class DBService(NoticeMixin, ValidationMixin, AdminMixin, DeviceMixin, SubmissionMixin):
+class DBService(
+    NoticeMixin, ValidationMixin, AdminMixin, DeviceMixin, SubmissionMixin, MottoMixin
+):
     def __init__(self, db_path=NOTICE_DB):
         self.db_path = db_path
         self.init_db()
@@ -62,6 +65,14 @@ class DBService(NoticeMixin, ValidationMixin, AdminMixin, DeviceMixin, Submissio
             setting_value TEXT
         )
         """
+        create_motto_sql = """
+        CREATE TABLE IF NOT EXISTS mottos (
+            date_str TEXT PRIMARY KEY,
+            motto_content TEXT,
+            motto_author TEXT
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
         create_index_sql = (
             "CREATE INDEX IF NOT EXISTS idx_key_string ON api_keys(key_string);"
         )
@@ -89,6 +100,7 @@ class DBService(NoticeMixin, ValidationMixin, AdminMixin, DeviceMixin, Submissio
             cursor.execute(create_admin_sql)
             cursor.execute(create_index_sql)
             cursor.execute(create_system_sql)
+            cursor.execute(create_motto_sql)
             cursor.execute(create_submissions_sql)
             conn.commit()
             logger.info("sql数据库初始化完成")

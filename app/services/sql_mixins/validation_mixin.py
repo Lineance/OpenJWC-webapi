@@ -171,7 +171,7 @@ class ValidationMixin:
             cursor = conn.cursor()
             cursor.execute("SELECT SUM(total_requests) FROM api_keys")
             result = cursor.fetchone()
-            return result[0] if result else 0
+            return result[0] if (result and result[0] is not None) else 0
 
     def get_active_keys_counts(self: DBInterface) -> int:
         """获取当前活跃的API密钥数量"""
