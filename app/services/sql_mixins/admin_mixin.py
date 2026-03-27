@@ -30,7 +30,9 @@ class AdminMixin:
         logger.info("管理员初始化配置成功读取")
         with open(ADMIN_CONFIG_PATH, "r") as f:
             admin_lists = json.load(f)
-
+        if len(admin_lists) == 0:
+            logger.warning("未读取到任何有效管理员账号。")
+            return False
         admin_usernames = []
         for admin_info in admin_lists:
             username = admin_info["username"]
@@ -45,6 +47,8 @@ class AdminMixin:
             if admin["user_name"] not in admin_usernames:
                 self.delete_admin(admin["user_name"])
                 logger.info(f"管理员{username}账号删除成功")
+            else:
+                logger.info(f"管理员{username}账号已存在")
 
         return True
 
