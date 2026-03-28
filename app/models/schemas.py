@@ -80,3 +80,12 @@ class SubmissionRequest(BaseModel):
 class UpdateStatusRequest(BaseModel):
     action: str
     review: str
+
+
+class UpdateSettingModel(BaseModel):
+    key: str
+    value: str
+
+
+class UpdateSettingRequest(BaseModel):
+    settings: List[UpdateSettingModel]

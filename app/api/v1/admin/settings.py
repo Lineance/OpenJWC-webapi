@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from app.core.security import verify_password
 from app.services.sql_db_service import db
-from app.models.schemas import ResponseModel
+from app.models.schemas import ResponseModel, UpdateSettingRequest
 from app.utils.logging_manager import setup_logger
 from app.api.logging_route import LoggingRoute
 from typing import Dict, Any, List
@@ -68,7 +68,7 @@ async def reset_settings(
 
 @router.put("", response_model=ResponseModel)
 async def toggle_apikey(
-    settings: Dict[str, Any],
+    settings: UpdateSettingRequest,
     admin_info: dict = Depends(verify_admin_token),
 ):
     """
@@ -76,9 +76,9 @@ async def toggle_apikey(
     """
     logger.info(f"Request ID: {admin_info['x_request_id']}")
     logger.info(f"Client Version: {admin_info['x_client_version']}")
-    sanitized_data = {k: v for k, v in settings.items() if k in ALLOWED_SETTINGS.keys()}
-    if len(sanitized_data) == 0:
-        return ResponseModel(msg="无匹配设置", data={})
-    for key, value in sanitized_data.items():
-        db.update_system_setting(key, value)
-    return ResponseModel(msg="修改成功", data={})
+    msg = "修改成功"
+    for setting in settings.settings:
+        if setting.key in ALLOWED_SETTINGS.keys():
+            msg += f"，{setting.key}被修改为{setting.value}"
+            db.update_system_setting(setting.key, setting.value)
+    return ResponseModel(msg=msg, data={})
