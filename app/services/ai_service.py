@@ -22,11 +22,28 @@ logger = setup_logger("ai_service_logs")
 
 http_client = httpx.AsyncClient(proxy=None, timeout=60.0)
 
-client = AsyncOpenAI(
-    api_key=db.get_system_setting("deepseek_api_key"),
-    base_url="https://api.deepseek.com",
-    http_client=http_client,
-)
+
+class AIService:
+    def __init__(self):
+        self.client = AsyncOpenAI(
+            api_key=db.get_system_setting("deepseek_api_key"),
+            base_url="https://api.deepseek.com",
+            http_client=http_client,
+        )
+
+    def reinitialize_client(self):
+        """重新实例化deepseek client，用于感知系统设置中apikey的变化"""
+        logger.info("正在重新初始化DeepSeek客户端")
+        self.client = AsyncOpenAI(
+            api_key=db.get_system_setting("deepseek_api_key"),
+            base_url="https://api.deepseek.com",
+            http_client=http_client,
+        )
+        logger.info("DeepSeek客户端重新初始化完成")
+
+
+ai_service = AIService()
+client = ai_service.client
 
 
 @retry(

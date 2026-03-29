@@ -30,7 +30,19 @@ logger = setup_logger("vector_db_logs")
 
 
 class VectorDBService:
-    @staticmethod
+    def __init__(self):
+        self.client = ZhipuAI(
+            api_key=db.get_system_setting("zhipu_api_key"), timeout=60
+        )
+
+    def reinitialize_client(self):
+        """重新实例化client"""
+        logger.info("正在重新初始化智谱AI客户端")
+        self.client = ZhipuAI(
+            api_key=db.get_system_setting("zhipu_api_key"), timeout=60
+        )
+        logger.info("智谱AI客户端重新初始化完成")
+
     @retry(
         # 针对智谱 SDK 抛出的网络、超时、限流、500错误进行重试
         retry=retry_if_exception_type(
@@ -47,19 +59,18 @@ class VectorDBService:
         before_sleep=before_sleep_log(logger, logging.WARNING),
         reraise=True,
     )
-    def _call_zhipu_embedding_with_retry(text: str):
-        return client.embeddings.create(
+    def _call_zhipu_embedding_with_retry(self, text: str):
+        return self.client.embeddings.create(
             model="embedding-3",
             input=text,
         )
 
-    @staticmethod
-    def get_embedding(text: str):
+    def get_embedding(self, text: str):
         """调用智谱 embedding-3 接口"""
         preview_text = text[:20].replace("\n", "") + "..." if len(text) > 20 else text
         logger.info(f"调用智谱 embedding-3 接口，输入文本: {preview_text}")
         try:
-            response = VectorDBService._call_zhipu_embedding_with_retry(text)
+            response = self._call_zhipu_embedding_with_retry(text)
             return response.data[0].embedding
         except Exception as e:
             logger.error(f"调用智谱 embedding-3 接口失败: {e}")
@@ -92,6 +103,61 @@ class VectorDBService:
             metadatas=[metadata],
         )
 
+    def sync_vector_db_metadata(self):
+        """
+        同步notices表中的数据到向量数据库的元信息中，
+        确保search只能搜索到notices表中存在的资讯
+        """
+        logger.info("开始同步向量数据库元信息...")
+        notices = db.get_all_notices()
+        notice_ids_in_db = {notice["id"] for notice in notices}
+        all_vector_ids = set()
+        try:
+            offset = 0
+            batch_size = 1000
+            while True:
+                results = collection.get(
+                    include=["metadatas"], offset=offset, limit=batch_size
+                )
+                if not results.get("ids") or len(results["ids"]) == 0:
+                    break
+                for metadata in results.get("metadatas", []):
+                    if metadata and "source_id" in metadata:
+                        all_vector_ids.add(metadata["source_id"])
+                offset += batch_size
+                if len(results["ids"]) < batch_size:
+                    break
+        except Exception as e:
+            logger.error(f"获取向量数据库元信息失败: {e}")
+            return False
+        logger.info(f"notices表中有 {len(notice_ids_in_db)} 条资讯")
+        logger.info(f"向量数据库中有 {len(all_vector_ids)} 条资讯")
+        updated_count = 0
+        for vector_id in all_vector_ids:
+            is_in_notices = vector_id in notice_ids_in_db
+            try:
+                results = collection.get(
+                    where={"source_id": vector_id}, include=["metadatas"]
+                )
+                if results.get("ids"):
+                    for i, metadata in enumerate(results.get("metadatas", [])):
+                        if metadata:
+                            updated_metadata = metadata.copy()
+                            updated_metadata["in_notices_table"] = is_in_notices
+
+                            chunk_id = results["ids"][i]
+                            collection.upsert(
+                                ids=[chunk_id], metadatas=[updated_metadata]
+                            )
+                            updated_count += 1
+
+            except Exception as e:
+                logger.error(f"更新资讯 {vector_id} 元信息失败: {e}")
+                continue
+
+        logger.info(f"元信息同步完成，共更新 {updated_count} 个chunks")
+        return True
+
     def search(self, query: str, n_results: int = 10) -> str:
         """语义搜索"""
         query_vector = self.get_embedding(f"{query}, 今日日期{date.today()}")
@@ -100,7 +166,10 @@ class VectorDBService:
         )
         cutoff_date_str = cutoff_date.strftime("%Y-%m-%d")
         cutoff_date_int = int(cutoff_date.strftime("%Y%m%d"))
-        where_clause = {"date_int": {"$gte": cutoff_date_int}}
+        where_clause = {
+            "date_int": {"$gte": cutoff_date_int},
+            "in_notices_table": {"$eq": True},
+        }
         results = collection.query(
             query_embeddings=[query_vector], n_results=n_results, where=where_clause
         )
@@ -151,6 +220,7 @@ class VectorDBService:
                     "title": notice["title"],
                     "date": notice["date"],
                     "date_int": int(notice["date"].replace("-", "")),
+                    "in_notices_table": True,
                 },
             )
         logger.info(f"资讯 [{notice['title']}] 入库完成。")
@@ -163,3 +233,4 @@ if __name__ == "__main__":
     from app.crawler_wrapper import sync_vector_db
 
     sync_vector_db()
+    vector_db.sync_vector_db_metadata()

@@ -5,6 +5,7 @@ from app.utils.logging_manager import setup_logger
 from app.api.logging_route import LoggingRoute
 from typing import Annotated
 from app.api.dependencies import optional_verify_api_key
+from asyncio import to_thread
 
 logger = setup_logger("client_notice_logs")
 
@@ -23,7 +24,7 @@ async def get_latest_notices(
     """
     offset = size * (page - 1)
     limit = size
-    total, notices = db.get_notices_for_app(label=label, offset=offset, limit=limit)
+    total, notices = await to_thread(db.get_notices_for_app, limit, offset, label)
     return ResponseModel(
         msg="获取成功",
         data={
@@ -42,4 +43,6 @@ async def get_notices_labels(
     """
     获取所有标签。
     """
-    return ResponseModel(msg="获取成功", data={"labels": db.get_labels()})
+    return ResponseModel(
+        msg="获取成功", data={"labels": await to_thread(db.get_labels)}
+    )

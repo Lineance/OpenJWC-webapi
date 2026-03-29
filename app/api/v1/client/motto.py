@@ -5,6 +5,7 @@ from app.api.dependencies import verify_api_key
 from app.models.schemas import ResponseModel
 from app.api.logging_route import LoggingRoute
 from app.services.sql_db_service import db
+from asyncio import to_thread
 
 logger = setup_logger("motto_api_logs")
 
@@ -14,9 +15,9 @@ router = APIRouter(prefix="/motto", route_class=LoggingRoute)
 @router.get("", response_model=ResponseModel)
 async def get_motto(valid_token: str = Depends(verify_api_key)):
     today_str = date.today().strftime("%Y-%m-%d")
-    success, data = db.get_today_motto(today_str)
-    if (not success) and db.insert_motto_from_hitokoto(today_str):
-        success, data = db.get_today_motto(today_str)
+    success, data = await to_thread(db.get_today_motto, today_str)
+    if (not success) and await to_thread(db.insert_motto_from_hitokoto, today_str):
+        success, data = await to_thread(db.get_today_motto, today_str)
     if success:
         return ResponseModel(
             msg="每日一言获取成功",

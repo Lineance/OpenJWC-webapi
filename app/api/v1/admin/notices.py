@@ -5,6 +5,7 @@ from app.utils.logging_manager import setup_logger
 from app.api.logging_route import LoggingRoute
 from typing import Annotated
 from app.api.dependencies import verify_admin_token
+from app.services.vector_db_service import vector_db
 
 logger = setup_logger("admin_notice_logs")
 
@@ -63,6 +64,7 @@ async def delete_notice(
     logger.info(f"Client Version: {admin_info['x_client_version']}")
     try:
         db.delete_notice_by_id(notice_id=notice_id)
+        vector_db.sync_vector_db_metadata()
         logger.info("Notice deleted successfully.")
         return ResponseModel(msg="入库资讯删除成功。", data={})
     except Exception as e:

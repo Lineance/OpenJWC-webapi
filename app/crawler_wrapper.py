@@ -32,6 +32,7 @@ def sync_vector_db():
             if is_new:
                 new_embedded_count += 1
 
+        vector_db.sync_vector_db_metadata()
         logger.info(
             f"向量库同步完成！跳过了 {total_count - new_embedded_count} 条，实际新增向量化 {new_embedded_count} 条。"
         )
