@@ -37,7 +37,6 @@ class LoggingRoute(APIRoute):
                             " [Form Data Contains Password - Masked for Security] "
                         )
                     raw_http += decoded_body
-                raw_http += f"\n{'=' * 58}"
 
                 logger.info(raw_http)
             except Exception as e:
