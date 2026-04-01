@@ -116,7 +116,7 @@ async def refresh_motto(
     logger.info(f"Client Version: {admin_info['x_client_version']}")
     today_str = date.today().strftime("%Y-%m-%d")
     try:
-        await to_thread(db.insert_motto_from_hitokoto, today_str)
+        await to_thread(db.replace_motto_from_hitokoto, today_str)
         return ResponseModel(msg="每日一言手动刷新成功", data={})
     except Exception as e:
         logger.error(f"手动刷新每日一言失败：{traceback.format_exc()}")

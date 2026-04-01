@@ -14,7 +14,7 @@ class LoggingRoute(APIRoute):
         async def custom_route_handler(request: Request) -> Response:
             body_bytes = await request.body()
             try:
-                raw_http = f"\n{'=' * 20} Incoming Request {'=' * 20}\n"
+                raw_http = "\nIncoming Request\n"
                 query_string = f"?{request.url.query}" if request.url.query else ""
                 raw_http += (
                     f"{request.method} {request.url.path}{query_string} HTTP/1.1\n"

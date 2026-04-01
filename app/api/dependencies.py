@@ -12,7 +12,6 @@ from app.core.security import SECRET_KEY, ALGORITHM
 
 logger = setup_logger("auth_logs")
 
-# HTTPBearer 是 FastAPI 内置的工具，专门用来解析请求头里的 Authorization: Bearer <token>
 security = HTTPBearer()
 
 
@@ -21,7 +20,6 @@ security = HTTPBearer()
 async def verify_api_key(
     # 自动提取 Authorization Header 中的 Token
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    # 强制要求请求头中必须带上 X-Device-ID
     x_device_id: str = Header(..., description="移动端设备的唯一标识 UUID"),
 ) -> str:
     """
