@@ -137,7 +137,7 @@ class VectorDBService:
             is_in_notices = vector_id in notice_ids_in_db
             try:
                 results = collection.get(
-                    where={"source_id": vector_id}, include=["metadatas"]
+                    where={"source_id": vector_id}, include=["metadatas", "documents"]
                 )
                 if results.get("ids"):
                     for i, metadata in enumerate(results.get("metadatas", [])):
@@ -146,8 +146,16 @@ class VectorDBService:
                             updated_metadata["in_notices_table"] = is_in_notices
 
                             chunk_id = results["ids"][i]
+                            # 获取原有的文档内容
+                            original_doc = (
+                                results.get("documents", [""])[i]
+                                if i < len(results.get("documents", []))
+                                else ""
+                            )
                             collection.upsert(
-                                ids=[chunk_id], metadatas=[updated_metadata]
+                                ids=[chunk_id],
+                                documents=[original_doc],
+                                metadatas=[updated_metadata],
                             )
                             updated_count += 1
 
@@ -166,9 +174,12 @@ class VectorDBService:
         )
         cutoff_date_str = cutoff_date.strftime("%Y-%m-%d")
         cutoff_date_int = int(cutoff_date.strftime("%Y%m%d"))
+        # 使用 AND 逻辑组合多个条件
         where_clause = {
-            "date_int": {"$gte": cutoff_date_int},
-            "in_notices_table": {"$eq": True},
+            "$and": [
+                {"date_int": {"$gte": cutoff_date_int}},
+                {"in_notices_table": {"$eq": True}},
+            ]
         }
         results = collection.query(
             query_embeddings=[query_vector], n_results=n_results, where=where_clause

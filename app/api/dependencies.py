@@ -12,7 +12,7 @@ from app.core.security import SECRET_KEY, ALGORITHM
 
 logger = setup_logger("auth_logs")
 
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
 
 
 # INFO: 用来对客户端进行鉴权的依赖，假如用户apikey异常则此处会直接拦截。
@@ -51,8 +51,13 @@ async def optional_verify_api_key(
     """
     可选鉴权，如果系统设置了true则鉴权，否则不鉴权。
     """
-    token = credentials.credentials
-    is_valid, error_msg = db.validate_and_use_key(token, x_device_id)
+    if credentials:
+        token = credentials.credentials
+        is_valid, error_msg = db.validate_and_use_key(token, x_device_id)
+    else:
+        token = ""
+        is_valid = False
+        error_msg = "未接受到有效token"
 
     if not is_valid and db.get_system_setting("notices_auth") != "0":
         logger.warning(
