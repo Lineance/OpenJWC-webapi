@@ -137,7 +137,8 @@ class VectorDBService:
             is_in_notices = vector_id in notice_ids_in_db
             try:
                 results = collection.get(
-                    where={"source_id": vector_id}, include=["metadatas", "documents"]
+                    where={"source_id": vector_id},
+                    include=["metadatas", "documents", "embeddings"],
                 )
                 if results.get("ids"):
                     for i, metadata in enumerate(results.get("metadatas", [])):
@@ -152,9 +153,16 @@ class VectorDBService:
                                 if i < len(results.get("documents", []))
                                 else ""
                             )
+                            # 获取原有的向量，避免 ChromaDB 用默认嵌入函数重新生成
+                            original_embedding = (
+                                results.get("embeddings", [None])[i]
+                                if i < len(results.get("embeddings", []))
+                                else None
+                            )
                             collection.upsert(
                                 ids=[chunk_id],
                                 documents=[original_doc],
+                                embeddings=[original_embedding],
                                 metadatas=[updated_metadata],
                             )
                             updated_count += 1
