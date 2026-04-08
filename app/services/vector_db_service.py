@@ -8,6 +8,7 @@ from zhipuai.core._errors import (
     APITimeoutError,
     APIInternalError,
     APIReachLimitError,
+    APIAuthenticationError,
 )
 from datetime import datetime, timedelta
 from app.utils.logging_manager import setup_logger
@@ -51,7 +52,6 @@ class VectorDBService:
                 APITimeoutError,
                 APIInternalError,
                 APIReachLimitError,
-                Exception,
             )
         ),
         wait=wait_exponential(multiplier=1, min=2, max=10),
@@ -60,10 +60,19 @@ class VectorDBService:
         reraise=True,
     )
     def _call_zhipu_embedding_with_retry(self, text: str):
-        return self.client.embeddings.create(
-            model="embedding-3",
-            input=text,
-        )
+        try:
+            return self.client.embeddings.create(
+                model="embedding-3",
+                input=text,
+            )
+        except APIAuthenticationError as e:
+            logger.warning(f"智谱AI认证失败(401)，尝试刷新API Key: {e}")
+            self.reinitialize_client()
+            # 用新 client 重试一次
+            return self.client.embeddings.create(
+                model="embedding-3",
+                input=text,
+            )
 
     def get_embedding(self, text: str):
         """调用智谱 embedding-3 接口"""

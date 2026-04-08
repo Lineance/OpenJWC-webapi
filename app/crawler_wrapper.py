@@ -69,10 +69,7 @@ def process_crawling_result():
         logger.info(
             f"数据库同步完成: 新增 {sync_result['new_added']} 条，更新 {sync_result['updated']} 条。"
         )
-        if sync_result["new_added"] > 0 or sync_result["updated"] > 0:
-            sync_vector_db()
-        else:
-            logger.info("SQL 数据无变化，跳过向量数据库同步。")
+        sync_vector_db()
     else:
         logger.error("未找到 output.json，爬虫可能未成功输出文件。")
 
