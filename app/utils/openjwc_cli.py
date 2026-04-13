@@ -8,11 +8,13 @@ from app.application.submission.submission_service import audit_and_import_submi
 from app.infrastructure.crawler.rust_crawler_wrapper import run_crawler_job
 from app.infrastructure.storage.lancedb.repository import get_article_repository
 from app.infrastructure.storage.sqlite.sql_db_service import db
+from app.infrastructure.storage.sqlite.submission_repository import SubmissionRepository
 from app.utils.logging_manager import setup_logger
 from app.utils.ping_check import diagnose_network_environment
 
 logger = setup_logger("cli_logs")
 article_repo = get_article_repository()
+submission_repo = SubmissionRepository(db)
 
 
 class SQLCLI(cmd2.Cmd):
@@ -69,7 +71,10 @@ class SQLCLI(cmd2.Cmd):
             print(article_repo.get_latest(limit=int(args[1])))
         elif args[0] == "submissions":
             status = args[1]
-            print(db.get_submissions_by_status(status))
+            _, items = submission_repo.list_for_admin(
+                limit=1000, offset=0, status=status
+            )
+            print(items)
         elif args[0] == "admins":
             print(db.get_all_admins())
 
@@ -174,11 +179,14 @@ class SQLCLI(cmd2.Cmd):
 
     def do_drop(self, arg: str):
         """
-        删除notices表。
+        删除指定 SQLite 用户态表（受白名单限制）。
         """
         args = arg.split()
         for table in args:
-            db.drop_table(table)
+            try:
+                db.drop_table(table)
+            except ValueError as exc:
+                logger.warning(str(exc))
 
     def do_crawl(self, arg: str):
         run_crawler_job()

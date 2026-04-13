@@ -5,11 +5,18 @@ from app.infrastructure.storage.sqlite.db_interface import logger
 from app.infrastructure.storage.sqlite.mixins.admin_mixin import AdminMixin
 from app.infrastructure.storage.sqlite.mixins.device_mixin import DeviceMixin
 from app.infrastructure.storage.sqlite.mixins.motto_mixin import MottoMixin
-from app.infrastructure.storage.sqlite.mixins.submission_mixin import SubmissionMixin
 from app.infrastructure.storage.sqlite.mixins.validation_mixin import ValidationMixin
 
+SQLITE_USER_STATE_TABLES = {
+    "api_keys",
+    "admin_users",
+    "system_settings",
+    "mottos",
+    "submissions",
+}
 
-class DBService(ValidationMixin, AdminMixin, DeviceMixin, SubmissionMixin, MottoMixin):
+
+class DBService(ValidationMixin, AdminMixin, DeviceMixin, MottoMixin):
     def __init__(self, db_path=NOTICE_DB):
         self.db_path = db_path
         self.init_db()
@@ -23,8 +30,8 @@ class DBService(ValidationMixin, AdminMixin, DeviceMixin, SubmissionMixin, Motto
         return conn
 
     def init_db(self):
-        """初始化数据库表"""
-        logger.info("正在尝试初始化sql数据库")
+        """初始化 SQLite 用户态/系统态表。"""
+        logger.info("正在初始化 SQLite 用户态数据库")
         create_keys_sql = """
         CREATE TABLE IF NOT EXISTS api_keys (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -90,7 +97,11 @@ class DBService(ValidationMixin, AdminMixin, DeviceMixin, SubmissionMixin, Motto
             logger.info("sql数据库初始化完成")
 
     def drop_table(self, table: str):
-        """CLI兼容：按名称删除表并重新初始化SQLite用户态表。"""
+        """CLI兼容：删除允许的 SQLite 用户态表并重建结构。"""
+        if table not in SQLITE_USER_STATE_TABLES:
+            allowed = ", ".join(sorted(SQLITE_USER_STATE_TABLES))
+            raise ValueError(f"不允许删除表: {table}. 允许的表: {allowed}")
+
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(f"DROP TABLE IF EXISTS {table}")
