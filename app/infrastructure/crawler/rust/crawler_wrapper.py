@@ -20,20 +20,20 @@ def _get_crawler_interval_minutes() -> int:
     return int(setting_value or "480")
 
 
-def sync_vector_db():
-    """将 SQL 数据库中的数据单向同步到 VectorDB"""
-    logger.info("开始进行 向量数据库 (VectorDB) 同步...")
+def sync_search_index():
+    """将爬虫结果通过 ingestion pipeline 同步到 LanceDB 检索索引"""
+    logger.info("开始进行 LanceDB 检索索引同步...")
 
     try:
         docs = adapter.load_from_file(str(NOTICE_JSON))
         result = pipeline.process_batch(docs)
         get_connection().rebuild_article_order()
         logger.info(
-            f"向量库同步完成！total={result.total}, success={result.success}, duplicate={result.duplicate}, invalid={result.invalid}, error={result.error}"
+            f"LanceDB 检索索引同步完成！total={result.total}, success={result.success}, duplicate={result.duplicate}, invalid={result.invalid}, error={result.error}"
         )
 
     except Exception as e:
-        logger.exception(f"向量数据库同步失败: {e}")
+        logger.exception(f"LanceDB 检索索引同步失败: {e}")
 
 
 def execute_crawling_task():
@@ -58,13 +58,13 @@ def execute_crawling_task():
 
 
 def process_crawling_result():
-    """处理爬虫结果，将数据同步到数据库和向量数据库"""
+    """处理爬虫结果，将数据同步到数据库和检索索引"""
     if NOTICE_JSON.exists():
         sync_result = db.sync_from_json(str(NOTICE_JSON))
         logger.info(
             f"数据库同步完成: 新增 {sync_result['new_added']} 条，更新 {sync_result['updated']} 条。"
         )
-        sync_vector_db()
+        sync_search_index()
     else:
         logger.error("未找到 output.json，爬虫可能未成功输出文件。")
 

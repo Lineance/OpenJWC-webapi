@@ -1,6 +1,7 @@
-from app.utils.logging_manager import setup_logger
 from datetime import date
+
 from app.infrastructure.storage.sqlite.sql_db_service import db
+from app.utils.logging_manager import setup_logger
 
 logger = setup_logger("prompt_engine_logs")
 
@@ -32,7 +33,7 @@ class PromptEngine:
 
         messages.insert(0, {"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": user_query})
-        preview_length = int(db.get_system_setting("prompt_preview_length"))
+        preview_length = int(db.get_system_setting("prompt_preview_length") or "500")
         preview_prompt = (
             system_prompt
             if len(system_prompt) <= preview_length
@@ -41,4 +42,3 @@ class PromptEngine:
         logger.info(f"已注入系统提示词：{preview_prompt}")
         logger.debug(messages)
         return messages
-

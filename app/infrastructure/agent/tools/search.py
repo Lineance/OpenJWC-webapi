@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from backend.retrieval.engine import RetrievalEngine
+from app.infrastructure.retrieval.engine import RetrievalEngine
 
 from .protocol import ToolResult
 
