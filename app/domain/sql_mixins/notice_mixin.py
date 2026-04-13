@@ -1,5 +1,5 @@
 from typing import List, Dict, Optional, Tuple
-from app.services.db_interface import DBInterface, logger
+from app.infrastructure.storage.sqlite.db_interface import DBInterface, logger
 import json
 import os
 
@@ -250,3 +250,4 @@ class NoticeMixin:
             )
             conn.commit()
             return True
+

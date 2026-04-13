@@ -1,5 +1,5 @@
 from typing import Dict, Optional
-from app.services.db_interface import DBInterface, logger
+from app.infrastructure.storage.sqlite.db_interface import DBInterface, logger
 from app.core.security import get_password_hash
 from app.core.config import ALLOWED_SETTINGS, ADMIN_CONFIG_PATH
 import os
@@ -237,3 +237,4 @@ class AdminMixin:
             )
             conn.commit()
             logger.info("所有系统配置已重置为默认值")
+

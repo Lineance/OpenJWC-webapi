@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from typing import Tuple
 from app.models.schemas import ResponseModel
-from app.services.sql_db_service import db
+from app.infrastructure.storage.sqlite.sql_db_service import db
 from app.api.dependencies import verify_api_key_and_device
 from app.utils.logging_manager import setup_logger
 from app.api.logging_route import LoggingRoute
@@ -30,3 +30,4 @@ async def unbind_device(valid_token_and_device=Depends(verify_api_key_and_device
     if not success:
         raise HTTPException(status_code=404, detail="绑定关系不存在或Key无效")
     return {"detail": "解绑成功，名额已释放。"}
+

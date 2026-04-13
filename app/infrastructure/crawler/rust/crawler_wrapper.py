@@ -1,14 +1,23 @@
 # app/worker.py
-import time
 import subprocess
+import time
 from datetime import date, timedelta
 
-from app.core.config import DATA_DIR, CRAWLER_BIN, NOTICE_JSON
-from app.services.sql_db_service import db
-from app.services.vector_db_service import vector_db
+from app.core.config import CRAWLER_BIN, DATA_DIR, NOTICE_JSON
+from app.infrastructure.ingestion.adapters import CrawlerAdapter
+from app.infrastructure.ingestion.pipeline import IngestionPipeline
+from app.infrastructure.storage.lancedb.connection import get_connection
+from app.infrastructure.storage.sqlite.sql_db_service import db
 from app.utils.logging_manager import setup_logger
 
 logger = setup_logger("crawler_logs")
+adapter = CrawlerAdapter()
+pipeline = IngestionPipeline()
+
+
+def _get_crawler_interval_minutes() -> int:
+    setting_value = db.get_system_setting("crawler_interval_minutes")
+    return int(setting_value or "480")
 
 
 def sync_vector_db():
@@ -16,28 +25,11 @@ def sync_vector_db():
     logger.info("开始进行 向量数据库 (VectorDB) 同步...")
 
     try:
-        all_notices = db.get_all_notices()
-        total_count = len(all_notices)
-        logger.info(f"从 SQL 数据库读取到 {total_count} 条记录，准备核对向量库。")
-        new_embedded_count = 0
-        new_no_content_count = 0
-        for notice in all_notices:
-            is_new = vector_db.process_and_index_notice(
-                {
-                    "id": notice["id"],
-                    "title": notice["title"],
-                    "content_text": notice["content_text"],
-                    "date": notice["date"],
-                }
-            )
-            if is_new:
-                new_embedded_count += 1
-                if notice["content_text"] is None:
-                    new_no_content_count += 1
-
-        vector_db.sync_vector_db_metadata()
+        docs = adapter.load_from_file(str(NOTICE_JSON))
+        result = pipeline.process_batch(docs)
+        get_connection().rebuild_article_order()
         logger.info(
-            f"向量库同步完成！跳过了 {total_count - new_embedded_count} 条，实际新增向量化 {new_embedded_count} 条（其中无正文 {new_no_content_count} 条）。"
+            f"向量库同步完成！total={result.total}, success={result.success}, duplicate={result.duplicate}, invalid={result.invalid}, error={result.error}"
         )
 
     except Exception as e:
@@ -94,8 +86,7 @@ if __name__ == "__main__":
     logger.info("后台爬虫服务已启动...")
     run_crawler_job()
     while True:
-        logger.info(
-            f"等待 {int(db.get_system_setting('crawler_interval_minutes')) / 60} 小时后进行下一次爬取..."
-        )
-        time.sleep(int(db.get_system_setting("crawler_interval_minutes")) * 60)
+        interval_minutes = _get_crawler_interval_minutes()
+        logger.info(f"等待 {interval_minutes / 60} 小时后进行下一次爬取...")
+        time.sleep(interval_minutes * 60)
         run_crawler_job()

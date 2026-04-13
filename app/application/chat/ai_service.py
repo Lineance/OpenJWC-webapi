@@ -1,26 +1,60 @@
-from app.services.prompt_engine import PromptEngine
-from app.services.vector_db_service import vector_db
-from openai import AsyncOpenAI
+import asyncio
+import logging
+
+import httpx
 import openai
 from fastapi import HTTPException
-from app.utils.logging_manager import setup_logger
-import logging
-from app.models.schemas import ChatRequest
-from app.services.sql_db_service import db
-import asyncio
-import httpx
-
+from openai import AsyncOpenAI
 from tenacity import (
+    before_sleep_log,
     retry,
+    retry_if_exception_type,
     stop_after_attempt,
     wait_exponential,
-    retry_if_exception_type,
-    before_sleep_log,
 )
+
+from app.application.chat.prompt_engine import PromptEngine
+from app.core.config import DATA_DIR
+from app.infrastructure.retrieval.engine import RetrievalEngine
+from app.infrastructure.storage.sqlite.sql_db_service import db
+from app.models.schemas import ChatRequest
+from app.utils.logging_manager import setup_logger
 
 logger = setup_logger("ai_service_logs")
 
 http_client = httpx.AsyncClient(proxy=None, timeout=60.0)
+retrieval_engine = RetrievalEngine(
+    db_path=str(DATA_DIR / "lancedb"), table_name="articles"
+)
+
+
+def _search_context(query: str, top_k: int) -> str:
+    payload = retrieval_engine.semantic_search(
+        query=query,
+        field="content",
+        similarity_threshold=0.0,
+        limit=top_k,
+    )
+    results = payload.get("results", [])
+    if not results:
+        return "未检索到相关资讯。"
+
+    lines = []
+    for index, item in enumerate(results, start=1):
+        preview = str(item.get("content_text", ""))
+        if len(preview) > 180:
+            preview = preview[:180] + "..."
+        lines.append(
+            "\n".join(
+                [
+                    f"{index}. 标题：{item.get('title', '')}",
+                    f"日期：{item.get('publish_date', '')}",
+                    f"链接：{item.get('url', '')}",
+                    f"正文：{preview}",
+                ]
+            )
+        )
+    return "\n\n".join(lines)
 
 
 class AIService:
@@ -89,7 +123,7 @@ async def get_ai_response(request: ChatRequest, use_rag=False):
                 logger.info("尝试从向量数据库检索相关资讯...")
                 context += "\n以下是通过知识库获取的和用户需求可能相关的资讯。请你更多关注用户指定的资讯。\n"
                 context += await asyncio.to_thread(
-                    vector_db.search, request.user_query, 3
+                    _search_context, request.user_query, 3
                 )
             except Exception as e:
                 logger.error(f"向量数据库检索失败: {e}")
@@ -98,7 +132,7 @@ async def get_ai_response(request: ChatRequest, use_rag=False):
                 logger.info("尝试从向量数据库检索相关资讯...")
                 context += "\n以下是通过知识库获取的和用户需求相关的部分资讯。请注意提示用户你可能并没有获取所有必需的资讯。\n"
                 context += await asyncio.to_thread(
-                    vector_db.search, request.user_query, 10
+                    _search_context, request.user_query, 10
                 )
             except Exception as e:
                 logger.error(f"向量数据库检索失败: {e}")

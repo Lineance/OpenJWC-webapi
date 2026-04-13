@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Query
-from app.services.sql_db_service import db
+from app.infrastructure.storage.sqlite.sql_db_service import db
 from app.models.schemas import ResponseModel
 from app.utils import logging_manager
 from app.utils.logging_manager import setup_logger
@@ -45,3 +45,4 @@ async def get_logs_modules(
     modules = list(set([log["module"] for log in logs]))
     modules.sort()
     return ResponseModel(msg="获取日志来源模块成功", data={"modules": modules})
+

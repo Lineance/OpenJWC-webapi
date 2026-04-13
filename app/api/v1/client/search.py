@@ -1,16 +1,20 @@
-from fastapi import APIRouter, Depends
-from app.models.schemas import (
-    ResponseModel,
-    SemanticSearchRequest,
-)
-from app.services.sql_db_service import db
-from app.services.vector_db_service import vector_db
-from app.utils.logging_manager import setup_logger
-from app.api.logging_route import LoggingRoute
-from app.api.dependencies import verify_api_key
+import json
 from asyncio import to_thread
 
+from fastapi import APIRouter, Depends
+
+from app.api.dependencies import verify_api_key
+from app.api.logging_route import LoggingRoute
+from app.core.config import DATA_DIR
+from app.infrastructure.retrieval.engine import RetrievalEngine
+from app.infrastructure.storage.sqlite.sql_db_service import db
+from app.models.schemas import ResponseModel, SemanticSearchRequest
+from app.utils.logging_manager import setup_logger
+
 logger = setup_logger("search_logs")
+retrieval_engine = RetrievalEngine(
+    db_path=str(DATA_DIR / "lancedb"), table_name="articles"
+)
 
 router = APIRouter(prefix="/notices/search", route_class=LoggingRoute)
 
@@ -42,13 +46,43 @@ async def semantic_search(
     top_k = max(1, min(request.top_k, 20))
 
     # 执行语义搜索
-    search_results = await to_thread(
-        vector_db.search_with_metadata, request.query, top_k, min_similarity
+    search_payload = await to_thread(
+        retrieval_engine.semantic_search,
+        request.query,
+        "content",
+        min_similarity,
+        top_k,
     )
 
     final_results = []
-    for result in search_results:
-        final_results.append(result)
+    for item in search_payload.get("results", []):
+        similarity = float(item.get("_similarity") or item.get("_final_score") or 0.0)
+        if similarity < min_similarity:
+            continue
+
+        metadata = item.get("metadata")
+        if isinstance(metadata, str):
+            try:
+                metadata = json.loads(metadata)
+            except json.JSONDecodeError:
+                metadata = {}
+        if not isinstance(metadata, dict):
+            metadata = {}
+
+        tags = item.get("tags") or []
+        label = tags[0] if tags else metadata.get("label")
+        final_results.append(
+            {
+                "id": str(item.get("news_id", "")),
+                "label": label,
+                "title": str(item.get("title", "")),
+                "date": str(item.get("publish_date", "")),
+                "detail_url": str(metadata.get("detail_url") or item.get("url") or ""),
+                "is_page": bool(metadata.get("is_page", True)),
+                "similarity_score": similarity,
+                "distance": max(0.0, 1.0 - similarity),
+            }
+        )
 
     logger.info(f"语义搜索完成，返回 {len(final_results)} 条结果")
 

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from fastapi.security import OAuth2PasswordRequestForm
 from app.core.security import verify_password, create_access_token
-from app.services.sql_db_service import db
+from app.infrastructure.storage.sqlite.sql_db_service import db
 from app.models.schemas import ResponseModel
 from app.utils.logging_manager import setup_logger
 from app.core.config import ACCESS_TOKEN_EXPIRE_MINUTES
@@ -34,3 +34,4 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
         msg="登录成功",
         data={"token": access_token, "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60},
     )
+

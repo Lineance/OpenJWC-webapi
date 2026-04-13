@@ -1,6 +1,6 @@
 import json
 import secrets
-from app.services.db_interface import DBInterface
+from app.infrastructure.storage.sqlite.db_interface import DBInterface
 from typing import Dict, List, Optional
 from app.utils.logging_manager import setup_logger
 
@@ -212,3 +212,4 @@ class ValidationMixin:
             conn.commit()
             logger.info(f"API Key [ID: {key_id}] 已被永久删除")
             return True
+

@@ -1,11 +1,13 @@
-from fastapi import APIRouter, Query, Depends, Path
-from app.models.schemas import ResponseModel
-from app.services.sql_db_service import db
-from app.utils.logging_manager import setup_logger
-from app.api.logging_route import LoggingRoute
 from typing import Annotated
+
+from fastapi import APIRouter, Depends, Path, Query
+
 from app.api.dependencies import verify_admin_token
-from app.services.vector_db_service import vector_db
+from app.api.logging_route import LoggingRoute
+from app.infrastructure.storage.lancedb.connection import get_connection
+from app.infrastructure.storage.sqlite.sql_db_service import db
+from app.models.schemas import ResponseModel
+from app.utils.logging_manager import setup_logger
 
 logger = setup_logger("admin_notice_logs")
 
@@ -64,7 +66,7 @@ async def delete_notice(
     logger.info(f"Client Version: {admin_info['x_client_version']}")
     try:
         db.delete_notice_by_id(notice_id=notice_id)
-        vector_db.sync_vector_db_metadata()
+        get_connection().rebuild_article_order()
         logger.info("Notice deleted successfully.")
         return ResponseModel(msg="入库资讯删除成功。", data={})
     except Exception as e:

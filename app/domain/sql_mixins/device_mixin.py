@@ -1,4 +1,4 @@
-from app.services.db_interface import DBInterface, logger
+from app.infrastructure.storage.sqlite.db_interface import DBInterface, logger
 from app.models.schemas import ResponseModel
 import json
 
@@ -61,3 +61,4 @@ class DeviceMixin:
                     "bound_devices": json.loads(row["bound_devices"]),
                 },
             )
+

@@ -1,6 +1,6 @@
 from app.utils.logging_manager import setup_logger
 from datetime import date
-from app.services.sql_db_service import db
+from app.infrastructure.storage.sqlite.sql_db_service import db
 
 logger = setup_logger("prompt_engine_logs")
 
@@ -41,3 +41,4 @@ class PromptEngine:
         logger.info(f"已注入系统提示词：{preview_prompt}")
         logger.debug(messages)
         return messages
+

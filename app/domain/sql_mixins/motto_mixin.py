@@ -1,7 +1,7 @@
 import json
 from typing import List, Dict, Optional, Tuple
-from app.services.db_interface import DBInterface, logger
-from app.services.motto_service import get_daily_quote
+from app.infrastructure.storage.sqlite.db_interface import DBInterface, logger
+from app.domain.motto.motto_service import get_daily_quote
 
 
 class MottoMixin:
@@ -68,3 +68,4 @@ class MottoMixin:
             return True, {"motto_content": row[0], "motto_author": row[1]}
         else:
             return False, {}
+

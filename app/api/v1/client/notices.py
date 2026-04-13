@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Query, Depends
 from app.models.schemas import ResponseModel
-from app.services.sql_db_service import db
+from app.infrastructure.storage.sqlite.sql_db_service import db
 from app.utils.logging_manager import setup_logger
 from app.api.logging_route import LoggingRoute
 from typing import Annotated
@@ -46,3 +46,4 @@ async def get_notices_labels(
     return ResponseModel(
         msg="获取成功", data={"labels": await to_thread(db.get_labels)}
     )
+

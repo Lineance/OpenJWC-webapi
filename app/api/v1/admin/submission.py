@@ -1,11 +1,17 @@
-from fastapi import APIRouter, Query, Depends, Path
-from app.models.schemas import ResponseModel, UpdateStatusRequest
-from app.services.sql_db_service import db
-from app.utils.logging_manager import setup_logger
-from app.api.logging_route import LoggingRoute
+from asyncio import to_thread
 from typing import Annotated
+
+from fastapi import APIRouter, Depends, Path, Query
+
 from app.api.dependencies import verify_admin_token
-from app.services.submission_service import audit_and_import_submission
+from app.api.logging_route import LoggingRoute
+from app.application.submission.submission_service import (
+    audit_and_import_submission,
+    get_submission_detail,
+    get_submissions_for_admin,
+)
+from app.models.schemas import ResponseModel, UpdateStatusRequest
+from app.utils.logging_manager import setup_logger
 
 logger = setup_logger("admin_submission_logs")
 
@@ -25,11 +31,7 @@ async def get_pending_submissions(
     """
     logger.info(f"Request ID: {admin_info['x_request_id']}")
     logger.info(f"Client Version: {admin_info['x_client_version']}")
-    offset = size * (page - 1)
-    limit = size
-    total, notices = db.get_submissions_for_admin(
-        status=status, offset=offset, limit=limit
-    )
+    total, notices = await to_thread(get_submissions_for_admin, page, size, status)
     return ResponseModel(
         msg="获取成功",
         data={
@@ -49,7 +51,9 @@ async def get_submission_content(
     """
     logger.info(f"Request ID: {admin_info['x_request_id']}")
     logger.info(f"Client Version: {admin_info['x_client_version']}")
-    return ResponseModel(msg="获取成功", data=db.get_submission_by_id(id))
+    return ResponseModel(
+        msg="获取成功", data=await to_thread(get_submission_detail, id)
+    )
 
 
 # TODO:
@@ -64,5 +68,12 @@ async def update_submission_status(
     """
     logger.info(f"Request ID: {admin_info['x_request_id']}")
     logger.info(f"Client Version: {admin_info['x_client_version']}")
-    audit_and_import_submission(id, request.action, request.review)
+    success = await to_thread(
+        audit_and_import_submission,
+        id,
+        request.action,
+        request.review,
+    )
+    if not success:
+        return ResponseModel(msg="修改失败", data={})
     return ResponseModel(msg="修改成功", data={})

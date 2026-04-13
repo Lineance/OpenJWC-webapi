@@ -5,7 +5,7 @@ from fastapi.security import (
     HTTPAuthorizationCredentials,
     OAuth2PasswordBearer,
 )
-from app.services.sql_db_service import db
+from app.infrastructure.storage.sqlite.sql_db_service import db
 from app.utils.logging_manager import setup_logger
 import jwt
 from app.core.security import SECRET_KEY, ALGORITHM
@@ -131,3 +131,4 @@ async def verify_api_key_and_device(
 
     logger.debug(f"鉴权通过 - Token: {token[:8]}... 设备: {x_device_id}")
     return token, x_device_id
+

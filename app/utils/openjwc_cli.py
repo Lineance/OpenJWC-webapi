@@ -1,5 +1,5 @@
-from app.services.submission_service import audit_and_import_submission
-from app.services.sql_db_service import db
+from app.application.submission.submission_service import audit_and_import_submission
+from app.infrastructure.storage.sqlite.sql_db_service import db
 from app.utils.ping_check import diagnose_network_environment
 from app.utils.logging_manager import setup_logger
 from rich import print
@@ -184,3 +184,4 @@ class SQLCLI(cmd2.Cmd):
             logger.info("success.")
         else:
             logger.warning("fail.")
+

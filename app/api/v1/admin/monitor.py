@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from app.models.schemas import ResponseModel
-from app.services.sql_db_service import db
+from app.infrastructure.storage.sqlite.sql_db_service import db
 from app.utils.logging_manager import setup_logger
 from app.api.dependencies import verify_admin_token
 from app.api.logging_route import LoggingRoute
@@ -57,3 +57,4 @@ async def get_sysinfo(admin_info: dict = Depends(verify_admin_token)):
     except Exception as e:
         logger.error(f"获取系统信息失败: {traceback.format_exc()}")
         return ResponseModel(data=None, msg=f"获取系统信息失败: {str(e)}")
+

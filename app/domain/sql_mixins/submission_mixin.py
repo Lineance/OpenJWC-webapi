@@ -1,7 +1,7 @@
 import json
 import sqlite3
 import hashlib
-from app.services.db_interface import DBInterface
+from app.infrastructure.storage.sqlite.db_interface import DBInterface
 from typing import List, Dict, Any, Tuple, Optional
 from app.utils.logging_manager import setup_logger
 from app.models.schemas import SubmissionRequest
@@ -170,3 +170,4 @@ class SubmissionMixin:
                     }
                 )
             return result
+

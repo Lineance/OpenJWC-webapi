@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from app.core.security import verify_password
-from app.services.sql_db_service import db
+from app.infrastructure.storage.sqlite.sql_db_service import db
 from app.models.schemas import ResponseModel, UpdateSettingRequest
 from app.utils.logging_manager import setup_logger
 from app.api.logging_route import LoggingRoute
@@ -9,8 +9,8 @@ from app.api.dependencies import verify_admin_token
 from app.core.config import ALLOWED_SETTINGS
 from datetime import date
 from app.infrastructure.crawler.rust.crawler_wrapper import run_crawler_job
-from app.services.ai_service import ai_service
-from app.services.vector_db_service import vector_db
+from app.application.chat.ai_service import ai_service
+from app.infrastructure.storage.lancedb.connection import get_connection
 from functools import wraps
 from asyncio import to_thread
 import traceback
@@ -23,9 +23,9 @@ logger = setup_logger("settings_logs")
 def reinitialize_client(func):
     @wraps(func)
     async def wrapper(*args, **kwargs):
-        await func(*args, **kwargs)
+        result = await func(*args, **kwargs)
         ai_service.reinitialize_client()
-        vector_db.reinitialize_client()
+        return result
 
     return wrapper
 
@@ -82,7 +82,10 @@ async def reset_settings(
         return ResponseModel(msg="重置全部设置。", data={})
     for key in sanitized_data:
         db.reset_system_setting(key)
-    vector_db.sync_vector_db_metadata()
+    try:
+        get_connection().rebuild_article_order()
+    except Exception as exc:
+        logger.warning(f"重建 LanceDB 顺序索引失败: {exc}")
     return ResponseModel(msg="修改成功", data={})
 
 
@@ -134,3 +137,4 @@ async def force_crawl(
     logger.info(f"Client Version: {admin_info['x_client_version']}")
     await to_thread(run_crawler_job)
     return ResponseModel(msg="手动爬虫成功", data={})
+
