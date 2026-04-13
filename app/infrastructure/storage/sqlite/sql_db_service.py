@@ -1,6 +1,6 @@
 import sqlite3
 
-from app.core.config import NOTICE_DB
+from app.core.config import SQLITE_DB_PATH
 from app.infrastructure.storage.sqlite.db_interface import logger
 from app.infrastructure.storage.sqlite.mixins.admin_mixin import AdminMixin
 from app.infrastructure.storage.sqlite.mixins.device_mixin import DeviceMixin
@@ -17,7 +17,7 @@ SQLITE_USER_STATE_TABLES = {
 
 
 class DBService(ValidationMixin, AdminMixin, DeviceMixin, MottoMixin):
-    def __init__(self, db_path=NOTICE_DB):
+    def __init__(self, db_path=SQLITE_DB_PATH):
         self.db_path = db_path
         self.init_db()
 
