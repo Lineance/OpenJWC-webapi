@@ -159,8 +159,8 @@ def pytest_configure(config: Any) -> None:
     use_real_crawl4ai = config.getoption("--run-real-web")
     if not use_real_crawl4ai:
         _install_fake_crawl4ai()
-    repo_root = Path(__file__).resolve().parents[3]
-    crawler_src = repo_root / "backend" / "crawler" / "src"
+    repo_root = Path(__file__).resolve().parents[2]
+    crawler_src = repo_root / "app" / "infrastructure" / "crawler" / "python" / "crawler"
     if str(crawler_src) not in sys.path:
         sys.path.insert(0, str(crawler_src))
 
@@ -194,3 +194,5 @@ def pytest_collection_modifyitems(config: Any, items: list[Any]) -> None:
     if deselected:
         config.hook.pytest_deselected(items=deselected)
         items[:] = selected
+
+

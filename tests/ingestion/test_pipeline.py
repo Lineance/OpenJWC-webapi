@@ -114,9 +114,9 @@ class TestPipelineNormalization:
 
     def test_normalize_minimal_document(self) -> None:
         """测试最小文档标准化"""
-        with patch("backend.ingestion.pipeline.get_embedder"), \
-             patch("backend.ingestion.pipeline.get_article_repository"), \
-             patch("backend.ingestion.pipeline.get_tag_matcher"):
+        with patch("app.infrastructure.ingestion.pipeline.get_embedder"), \
+             patch("app.infrastructure.ingestion.pipeline.get_article_repository"), \
+             patch("app.infrastructure.ingestion.pipeline.get_tag_matcher"):
             from app.infrastructure.ingestion.pipeline import IngestionPipeline
 
             pipeline = IngestionPipeline(
@@ -140,9 +140,9 @@ class TestPipelineNormalization:
 
     def test_normalize_extracts_title_from_content(self) -> None:
         """测试从内容中提取标题"""
-        with patch("backend.ingestion.pipeline.get_embedder"), \
-             patch("backend.ingestion.pipeline.get_article_repository"), \
-             patch("backend.ingestion.pipeline.get_tag_matcher"):
+        with patch("app.infrastructure.ingestion.pipeline.get_embedder"), \
+             patch("app.infrastructure.ingestion.pipeline.get_article_repository"), \
+             patch("app.infrastructure.ingestion.pipeline.get_tag_matcher"):
             from app.infrastructure.ingestion.pipeline import IngestionPipeline
 
             pipeline = IngestionPipeline(
@@ -164,9 +164,9 @@ class TestPipelineNormalization:
 
     def test_normalize_datetime_conversion(self) -> None:
         """测试日期时间转换"""
-        with patch("backend.ingestion.pipeline.get_embedder"), \
-             patch("backend.ingestion.pipeline.get_article_repository"), \
-             patch("backend.ingestion.pipeline.get_tag_matcher"):
+        with patch("app.infrastructure.ingestion.pipeline.get_embedder"), \
+             patch("app.infrastructure.ingestion.pipeline.get_article_repository"), \
+             patch("app.infrastructure.ingestion.pipeline.get_tag_matcher"):
             from app.infrastructure.ingestion.pipeline import IngestionPipeline
 
             pipeline = IngestionPipeline(
@@ -193,9 +193,9 @@ class TestPipelineValidation:
 
     def test_validate_missing_required_field(self) -> None:
         """测试缺少必填字段"""
-        with patch("backend.ingestion.pipeline.get_embedder"), \
-             patch("backend.ingestion.pipeline.get_article_repository"), \
-             patch("backend.ingestion.pipeline.get_tag_matcher"):
+        with patch("app.infrastructure.ingestion.pipeline.get_embedder"), \
+             patch("app.infrastructure.ingestion.pipeline.get_article_repository"), \
+             patch("app.infrastructure.ingestion.pipeline.get_tag_matcher"):
             from app.infrastructure.ingestion.pipeline import IngestionPipeline
 
             pipeline = IngestionPipeline(
@@ -216,9 +216,9 @@ class TestPipelineValidation:
 
     def test_validate_invalid_url(self) -> None:
         """测试无效 URL"""
-        with patch("backend.ingestion.pipeline.get_embedder"), \
-             patch("backend.ingestion.pipeline.get_article_repository"), \
-             patch("backend.ingestion.pipeline.get_tag_matcher"):
+        with patch("app.infrastructure.ingestion.pipeline.get_embedder"), \
+             patch("app.infrastructure.ingestion.pipeline.get_article_repository"), \
+             patch("app.infrastructure.ingestion.pipeline.get_tag_matcher"):
             from app.infrastructure.ingestion.pipeline import IngestionPipeline
 
             pipeline = IngestionPipeline(
@@ -246,9 +246,9 @@ class TestPipelineProcessOne:
         mock_repo = MagicMock()
         mock_repo.add_one.return_value = True
 
-        with patch("backend.ingestion.pipeline.get_embedder") as mock_get_embedder, \
-             patch("backend.ingestion.pipeline.get_article_repository", return_value=mock_repo), \
-             patch("backend.ingestion.pipeline.get_tag_matcher"):
+        with patch("app.infrastructure.ingestion.pipeline.get_embedder") as mock_get_embedder, \
+             patch("app.infrastructure.ingestion.pipeline.get_article_repository", return_value=mock_repo), \
+             patch("app.infrastructure.ingestion.pipeline.get_tag_matcher"):
             mock_embedder = MagicMock()
             mock_embedder.embed_batch.return_value = ([0.1] * 384, [0.1] * 1024)
             mock_get_embedder.return_value = mock_embedder
@@ -277,9 +277,9 @@ class TestPipelineProcessOne:
         mock_repo = MagicMock()
         mock_repo.add_one.return_value = False  # 写入失败
 
-        with patch("backend.ingestion.pipeline.get_embedder") as mock_get_embedder, \
-             patch("backend.ingestion.pipeline.get_article_repository", return_value=mock_repo), \
-             patch("backend.ingestion.pipeline.get_tag_matcher"):
+        with patch("app.infrastructure.ingestion.pipeline.get_embedder") as mock_get_embedder, \
+             patch("app.infrastructure.ingestion.pipeline.get_article_repository", return_value=mock_repo), \
+             patch("app.infrastructure.ingestion.pipeline.get_tag_matcher"):
             mock_embedder = MagicMock()
             mock_embedder.embed_batch.return_value = ([0.1] * 384, [0.1] * 1024)
             mock_get_embedder.return_value = mock_embedder
@@ -308,9 +308,9 @@ class TestPipelineProcessBatch:
 
     def test_process_batch_empty_list(self) -> None:
         """测试空列表处理"""
-        with patch("backend.ingestion.pipeline.get_embedder"), \
-             patch("backend.ingestion.pipeline.get_article_repository"), \
-             patch("backend.ingestion.pipeline.get_tag_matcher"):
+        with patch("app.infrastructure.ingestion.pipeline.get_embedder"), \
+             patch("app.infrastructure.ingestion.pipeline.get_article_repository"), \
+             patch("app.infrastructure.ingestion.pipeline.get_tag_matcher"):
             from app.infrastructure.ingestion.pipeline import IngestionPipeline
 
             pipeline = IngestionPipeline(
@@ -329,9 +329,9 @@ class TestPipelineProcessBatch:
         """测试批量验证失败"""
         mock_repo = MagicMock()
 
-        with patch("backend.ingestion.pipeline.get_embedder"), \
-             patch("backend.ingestion.pipeline.get_article_repository", return_value=mock_repo), \
-             patch("backend.ingestion.pipeline.get_tag_matcher"):
+        with patch("app.infrastructure.ingestion.pipeline.get_embedder"), \
+             patch("app.infrastructure.ingestion.pipeline.get_article_repository", return_value=mock_repo), \
+             patch("app.infrastructure.ingestion.pipeline.get_tag_matcher"):
             from app.infrastructure.ingestion.pipeline import IngestionPipeline
 
             pipeline = IngestionPipeline(
@@ -348,3 +348,4 @@ class TestPipelineProcessBatch:
 
             assert result.total == 1
             assert result.invalid == 1
+

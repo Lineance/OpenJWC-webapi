@@ -112,8 +112,8 @@ tags:
 class TestTagInitializerInit:
     """TagInitializer 初始化测试"""
 
-    @patch("backend.ingestion.tag_initializer.get_embedder")
-    @patch("backend.ingestion.tag_initializer.get_tag_repository")
+    @patch("app.infrastructure.ingestion.tag_initializer.get_embedder")
+    @patch("app.infrastructure.ingestion.tag_initializer.get_tag_repository")
     def test_initializer_init(self, mock_get_repo: MagicMock, mock_get_embedder: MagicMock) -> None:
         """测试初始化器初始化"""
         mock_repo = MagicMock()
@@ -135,8 +135,8 @@ class TestTagInitializerInit:
 class TestTagInitializerRun:
     """TagInitializer run 方法测试"""
 
-    @patch("backend.ingestion.tag_initializer.get_embedder")
-    @patch("backend.ingestion.tag_initializer.get_tag_repository")
+    @patch("app.infrastructure.ingestion.tag_initializer.get_embedder")
+    @patch("app.infrastructure.ingestion.tag_initializer.get_tag_repository")
     @patch.object(TagConfigLoader, "load_config")
     @patch.object(TagConfigLoader, "parse_tags")
     def test_run_no_tags(
@@ -160,8 +160,8 @@ class TestTagInitializerRun:
 
         assert result is False
 
-    @patch("backend.ingestion.tag_initializer.get_embedder")
-    @patch("backend.ingestion.tag_initializer.get_tag_repository")
+    @patch("app.infrastructure.ingestion.tag_initializer.get_embedder")
+    @patch("app.infrastructure.ingestion.tag_initializer.get_tag_repository")
     @patch.object(TagConfigLoader, "load_config")
     @patch.object(TagConfigLoader, "parse_tags")
     def test_run_success(
@@ -194,8 +194,8 @@ class TestTagInitializerRun:
         assert result is True
         mock_repo.add_batch.assert_called_once()
 
-    @patch("backend.ingestion.tag_initializer.get_embedder")
-    @patch("backend.ingestion.tag_initializer.get_tag_repository")
+    @patch("app.infrastructure.ingestion.tag_initializer.get_embedder")
+    @patch("app.infrastructure.ingestion.tag_initializer.get_tag_repository")
     @patch.object(TagConfigLoader, "load_config")
     @patch.object(TagConfigLoader, "parse_tags")
     def test_run_with_clear_existing(
@@ -233,8 +233,8 @@ class TestTagInitializerRun:
 class TestTagInitializerHelpers:
     """TagInitializer 辅助方法测试"""
 
-    @patch("backend.ingestion.tag_initializer.get_embedder")
-    @patch("backend.ingestion.tag_initializer.get_tag_repository")
+    @patch("app.infrastructure.ingestion.tag_initializer.get_embedder")
+    @patch("app.infrastructure.ingestion.tag_initializer.get_tag_repository")
     def test_clear_existing_tags(
         self,
         mock_get_repo: MagicMock,
@@ -256,8 +256,8 @@ class TestTagInitializerHelpers:
         assert result is True
         mock_repo.clear_all.assert_called_once()
 
-    @patch("backend.ingestion.tag_initializer.get_embedder")
-    @patch("backend.ingestion.tag_initializer.get_tag_repository")
+    @patch("app.infrastructure.ingestion.tag_initializer.get_embedder")
+    @patch("app.infrastructure.ingestion.tag_initializer.get_tag_repository")
     def test_clear_existing_no_tags(
         self,
         mock_get_repo: MagicMock,
@@ -278,8 +278,8 @@ class TestTagInitializerHelpers:
         assert result is True
         mock_repo.clear_all.assert_not_called()
 
-    @patch("backend.ingestion.tag_initializer.get_embedder")
-    @patch("backend.ingestion.tag_initializer.get_tag_repository")
+    @patch("app.infrastructure.ingestion.tag_initializer.get_embedder")
+    @patch("app.infrastructure.ingestion.tag_initializer.get_tag_repository")
     def test_generate_tag_embeddings(
         self,
         mock_get_repo: MagicMock,
@@ -305,8 +305,8 @@ class TestTagInitializerHelpers:
         assert records[0].name == "标签1"
         mock_embedder.embed_contents.assert_called_once()
 
-    @patch("backend.ingestion.tag_initializer.get_embedder")
-    @patch("backend.ingestion.tag_initializer.get_tag_repository")
+    @patch("app.infrastructure.ingestion.tag_initializer.get_embedder")
+    @patch("app.infrastructure.ingestion.tag_initializer.get_tag_repository")
     def test_generate_tag_embeddings_partial_failure(
         self,
         mock_get_repo: MagicMock,
@@ -336,8 +336,8 @@ class TestTagInitializerHelpers:
         assert len(records) == 1
         assert records[0].tag_id == "tag1"
 
-    @patch("backend.ingestion.tag_initializer.get_embedder")
-    @patch("backend.ingestion.tag_initializer.get_tag_repository")
+    @patch("app.infrastructure.ingestion.tag_initializer.get_embedder")
+    @patch("app.infrastructure.ingestion.tag_initializer.get_tag_repository")
     def test_save_tags_empty(
         self,
         mock_get_repo: MagicMock,
@@ -356,8 +356,8 @@ class TestTagInitializerHelpers:
         assert count == 0
         mock_repo.add_batch.assert_not_called()
 
-    @patch("backend.ingestion.tag_initializer.get_embedder")
-    @patch("backend.ingestion.tag_initializer.get_tag_repository")
+    @patch("app.infrastructure.ingestion.tag_initializer.get_embedder")
+    @patch("app.infrastructure.ingestion.tag_initializer.get_tag_repository")
     def test_save_tags_success(
         self,
         mock_get_repo: MagicMock,
@@ -379,8 +379,8 @@ class TestTagInitializerHelpers:
 
         assert count == 2
 
-    @patch("backend.ingestion.tag_initializer.get_embedder")
-    @patch("backend.ingestion.tag_initializer.get_tag_repository")
+    @patch("app.infrastructure.ingestion.tag_initializer.get_embedder")
+    @patch("app.infrastructure.ingestion.tag_initializer.get_tag_repository")
     def test_create_indices(
         self,
         mock_get_repo: MagicMock,
@@ -401,8 +401,8 @@ class TestTagInitializerHelpers:
         assert result is True
         mock_repo.create_indices.assert_called_once()
 
-    @patch("backend.ingestion.tag_initializer.get_embedder")
-    @patch("backend.ingestion.tag_initializer.get_tag_repository")
+    @patch("app.infrastructure.ingestion.tag_initializer.get_embedder")
+    @patch("app.infrastructure.ingestion.tag_initializer.get_tag_repository")
     def test_verify_initialization_pass(
         self,
         mock_get_repo: MagicMock,
@@ -422,8 +422,8 @@ class TestTagInitializerHelpers:
 
         assert result is True
 
-    @patch("backend.ingestion.tag_initializer.get_embedder")
-    @patch("backend.ingestion.tag_initializer.get_tag_repository")
+    @patch("app.infrastructure.ingestion.tag_initializer.get_embedder")
+    @patch("app.infrastructure.ingestion.tag_initializer.get_tag_repository")
     def test_verify_initialization_fail(
         self,
         mock_get_repo: MagicMock,
@@ -443,8 +443,8 @@ class TestTagInitializerHelpers:
 
         assert result is False
 
-    @patch("backend.ingestion.tag_initializer.get_embedder")
-    @patch("backend.ingestion.tag_initializer.get_tag_repository")
+    @patch("app.infrastructure.ingestion.tag_initializer.get_embedder")
+    @patch("app.infrastructure.ingestion.tag_initializer.get_tag_repository")
     def test_get_statistics(
         self,
         mock_get_repo: MagicMock,
@@ -466,8 +466,8 @@ class TestTagInitializerHelpers:
         assert stats["total_tags"] == 10
         assert stats["categories"]["test"] == 5
 
-    @patch("backend.ingestion.tag_initializer.get_embedder")
-    @patch("backend.ingestion.tag_initializer.get_tag_repository")
+    @patch("app.infrastructure.ingestion.tag_initializer.get_embedder")
+    @patch("app.infrastructure.ingestion.tag_initializer.get_tag_repository")
     def test_get_statistics_error(
         self,
         mock_get_repo: MagicMock,
@@ -486,3 +486,4 @@ class TestTagInitializerHelpers:
         stats = initializer.get_statistics()
 
         assert stats == {}
+

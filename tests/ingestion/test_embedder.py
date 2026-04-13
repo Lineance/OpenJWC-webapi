@@ -34,7 +34,7 @@ class TestEmbedderUtilityFunctions:
 
     def test_is_model_cached_locally_true(self) -> None:
         """测试模型已缓存"""
-        with patch("backend.ingestion.embedder.try_to_load_from_cache") as mock_cache:
+        with patch("app.infrastructure.ingestion.embedder.try_to_load_from_cache") as mock_cache:
             mock_cache.return_value = "/path/to/cached/model"
 
             from app.infrastructure.ingestion.embedder import _is_model_cached_locally
@@ -45,7 +45,7 @@ class TestEmbedderUtilityFunctions:
 
     def test_is_model_cached_locally_false(self) -> None:
         """测试模型未缓存"""
-        with patch("backend.ingestion.embedder.try_to_load_from_cache") as mock_cache:
+        with patch("app.infrastructure.ingestion.embedder.try_to_load_from_cache") as mock_cache:
             mock_cache.return_value = "_CACHED_NO_EXIST"
 
             from app.infrastructure.ingestion.embedder import _is_model_cached_locally
@@ -56,7 +56,7 @@ class TestEmbedderUtilityFunctions:
 
     def test_is_model_cached_locally_exception(self) -> None:
         """测试缓存检查异常"""
-        with patch("backend.ingestion.embedder.try_to_load_from_cache") as mock_cache:
+        with patch("app.infrastructure.ingestion.embedder.try_to_load_from_cache") as mock_cache:
             mock_cache.side_effect = Exception("Cache error")
 
             from app.infrastructure.ingestion.embedder import _is_model_cached_locally
@@ -159,3 +159,4 @@ class TestEmbedderEmbedBatch:
         assert len(content_vecs) == 1
         assert len(title_vecs[0]) == TITLE_EMBEDDING_DIM
         assert len(content_vecs[0]) == CONTENT_EMBEDDING_DIM
+

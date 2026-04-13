@@ -10,7 +10,7 @@ import pytest
 class TestRetrievalEmbedderInit:
     """RetrievalEmbedder 初始化测试"""
 
-    @patch("backend.retrieval.utils.embedding.get_embedder")
+    @patch("app.infrastructure.retrieval.utils.embedding.get_embedder")
     def test_embedder_init(self, mock_get_embedder: MagicMock) -> None:
         """测试检索向量化器初始化"""
         mock_embedder = MagicMock()
@@ -24,7 +24,7 @@ class TestRetrievalEmbedderInit:
         assert embedder._embedder is mock_embedder
         assert embedder._model_info == {"title": 384, "content": 1024}
 
-    @patch("backend.retrieval.utils.embedding.get_embedder")
+    @patch("app.infrastructure.retrieval.utils.embedding.get_embedder")
     def test_embedder_init_with_custom_embedder(self, mock_get_embedder: MagicMock) -> None:
         """测试使用自定义向量化器初始化"""
         mock_embedder = MagicMock()
@@ -42,7 +42,7 @@ class TestRetrievalEmbedderInit:
 class TestEmbedQuery:
     """embed_query 测试"""
 
-    @patch("backend.retrieval.utils.embedding.get_embedder")
+    @patch("app.infrastructure.retrieval.utils.embedding.get_embedder")
     def test_embed_query_empty(self, mock_get_embedder: MagicMock) -> None:
         """测试空查询返回零向量"""
         mock_embedder = MagicMock()
@@ -56,7 +56,7 @@ class TestEmbedQuery:
 
         assert result == [0.0] * 1024
 
-    @patch("backend.retrieval.utils.embedding.get_embedder")
+    @patch("app.infrastructure.retrieval.utils.embedding.get_embedder")
     def test_embed_query_empty_title(self, mock_get_embedder: MagicMock) -> None:
         """测试空查询返回标题零向量"""
         mock_embedder = MagicMock()
@@ -70,7 +70,7 @@ class TestEmbedQuery:
 
         assert result == [0.0] * 384
 
-    @patch("backend.retrieval.utils.embedding.get_embedder")
+    @patch("app.infrastructure.retrieval.utils.embedding.get_embedder")
     def test_embed_query_empty_both(self, mock_get_embedder: MagicMock) -> None:
         """测试空查询返回两个零向量"""
         mock_embedder = MagicMock()
@@ -85,7 +85,7 @@ class TestEmbedQuery:
         assert title_vec == [0.0] * 384
         assert content_vec == [0.0] * 1024
 
-    @patch("backend.retrieval.utils.embedding.get_embedder")
+    @patch("app.infrastructure.retrieval.utils.embedding.get_embedder")
     def test_embed_query_title_field(self, mock_get_embedder: MagicMock) -> None:
         """测试标题字段查询"""
         mock_embedder = MagicMock()
@@ -101,7 +101,7 @@ class TestEmbedQuery:
         assert result == [0.1] * 384
         mock_embedder.embed_titles.assert_called_once()
 
-    @patch("backend.retrieval.utils.embedding.get_embedder")
+    @patch("app.infrastructure.retrieval.utils.embedding.get_embedder")
     def test_embed_query_content_field(self, mock_get_embedder: MagicMock) -> None:
         """测试内容字段查询"""
         mock_embedder = MagicMock()
@@ -118,7 +118,7 @@ class TestEmbedQuery:
         # Should add BGE prefix
         mock_embedder.embed_contents.assert_called_once()
 
-    @patch("backend.retrieval.utils.embedding.get_embedder")
+    @patch("app.infrastructure.retrieval.utils.embedding.get_embedder")
     def test_embed_query_both_fields(self, mock_get_embedder: MagicMock) -> None:
         """测试两个字段查询"""
         mock_embedder = MagicMock()
@@ -139,7 +139,7 @@ class TestEmbedQuery:
 class TestEmbedQueries:
     """embed_queries 批量查询测试"""
 
-    @patch("backend.retrieval.utils.embedding.get_embedder")
+    @patch("app.infrastructure.retrieval.utils.embedding.get_embedder")
     def test_embed_queries_empty(self, mock_get_embedder: MagicMock) -> None:
         """测试空查询列表"""
         mock_embedder = MagicMock()
@@ -154,7 +154,7 @@ class TestEmbedQueries:
         assert result == []
         mock_embedder.embed_titles.assert_not_called()
 
-    @patch("backend.retrieval.utils.embedding.get_embedder")
+    @patch("app.infrastructure.retrieval.utils.embedding.get_embedder")
     def test_embed_queries_title(self, mock_get_embedder: MagicMock) -> None:
         """测试批量标题查询"""
         mock_embedder = MagicMock()
@@ -170,7 +170,7 @@ class TestEmbedQueries:
         assert len(result) == 2
         assert result[0] == [0.1] * 384
 
-    @patch("backend.retrieval.utils.embedding.get_embedder")
+    @patch("app.infrastructure.retrieval.utils.embedding.get_embedder")
     def test_embed_queries_content(self, mock_get_embedder: MagicMock) -> None:
         """测试批量内容查询"""
         mock_embedder = MagicMock()
@@ -189,7 +189,7 @@ class TestEmbedQueries:
 class TestEmbedHybridQuery:
     """embed_hybrid_query 测试"""
 
-    @patch("backend.retrieval.utils.embedding.get_embedder")
+    @patch("app.infrastructure.retrieval.utils.embedding.get_embedder")
     def test_embed_hybrid_query(self, mock_get_embedder: MagicMock) -> None:
         """测试混合查询"""
         mock_embedder = MagicMock()
@@ -358,3 +358,4 @@ class TestConvenienceFunctions:
         vec = [1.0, 0.0]
         result = cosine_similarity(vec, vec)
         assert result == pytest.approx(1.0, abs=0.0001)
+

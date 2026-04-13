@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 # Add project root to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from app.infrastructure.crawler.python.crawler.article_url_crawler import ArticleUrlCrawler
 from app.infrastructure.crawler.python.crawler.list_incremental_crawler import ListIncrementalCrawler
@@ -417,3 +417,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

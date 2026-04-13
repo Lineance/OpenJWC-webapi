@@ -1,8 +1,8 @@
 """Smoke test script for agent event loop and planning behavior.
 
 Usage examples:
-  python backend/scripts/smoke_agent.py --mode heuristic
-  python backend/scripts/smoke_agent.py --mode llm --require-llm
+  python tests/smoke_agent.py --mode heuristic
+  python tests/smoke_agent.py --mode llm --require-llm
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from typing import Any
 
 from dotenv import load_dotenv
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
@@ -64,8 +64,8 @@ def parse_args() -> argparse.Namespace:
 
 
 def load_env_files() -> None:
-    load_dotenv(ROOT / "backend" / "agent" / ".env", override=False)
-    load_dotenv(ROOT / "backend" / ".env", override=False)
+    load_dotenv(ROOT / "app" / "infrastructure" / "agent" / ".env", override=False)
+    load_dotenv(ROOT / ".env", override=False)
 
 
 def build_decision_client(args: argparse.Namespace) -> LLMDecisionClient | None:
@@ -154,3 +154,5 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+

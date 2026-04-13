@@ -66,12 +66,12 @@ def mock_embedder() -> Generator[Mock]:
     Yields:
         模拟的嵌入器对象
     """
-    with patch("backend.ingestion.embedder.SentenceTransformer") as mock_transformer:
+    with patch("app.infrastructure.ingestion.embedder.SentenceTransformer") as mock_transformer:
         mock_instance = Mock()
         mock_instance.encode.return_value = [[0.1] * 384]
         mock_transformer.return_value = mock_instance
 
-        with patch("backend.ingestion.embedder.QuantizedEmbedder") as mock_quantized:
+        with patch("app.infrastructure.ingestion.embedder.QuantizedEmbedder") as mock_quantized:
             mock_quantized_instance = Mock()
             mock_quantized_instance.embed_contents.return_value = [[0.1] * 1024]
             mock_quantized.return_value = mock_quantized_instance
@@ -226,3 +226,4 @@ def pytest_configure(config: Any) -> None:
     config.addinivalue_line("markers", "integration: 标记为集成测试（需要数据库）")
     config.addinivalue_line("markers", "slow: 标记为慢速测试")
     config.addinivalue_line("markers", "unit: 标记为单位测试（快速、隔离）")
+

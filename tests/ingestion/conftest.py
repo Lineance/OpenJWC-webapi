@@ -7,8 +7,8 @@ from unittest.mock import MagicMock, Mock
 
 import pytest
 
-# 确保 backend 路径可用
-sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+# 确保项目根路径可用
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 
 @pytest.fixture
@@ -16,7 +16,7 @@ def mock_embedder():
     """模拟 Embedder"""
     with pytest.MonkeyPatch.context() as mp:
         mp.setattr(
-            "backend.ingestion.pipeline.get_embedder",
+            "app.infrastructure.ingestion.pipeline.get_embedder",
             lambda: MagicMock(),
         )
         yield
@@ -86,3 +86,5 @@ def sample_normalized_document() -> dict[str, Any]:
         "last_updated": datetime.now(timezone.utc),
         "metadata": '{"key": "value"}',
     }
+
+

@@ -61,7 +61,7 @@ class TestCreateStore:
 
     def test_create_store_returns_lance_store(self) -> None:
         """测试 create_store 返回 LanceStore"""
-        with patch("backend.retrieval.store.LanceStore") as mock_store_class:
+        with patch("app.infrastructure.retrieval.store.LanceStore") as mock_store_class:
             mock_store = MagicMock()
             mock_store_class.return_value = mock_store
 
@@ -77,7 +77,7 @@ class TestGetStore:
 
     def test_get_store_returns_cached_instance(self) -> None:
         """测试 get_store 返回缓存实例"""
-        with patch("backend.retrieval.store.create_store") as mock_create:
+        with patch("app.infrastructure.retrieval.store.create_store") as mock_create:
             mock_store = MagicMock()
             mock_create.return_value = mock_store
 
@@ -88,3 +88,4 @@ class TestGetStore:
 
             # 两次调用返回同一实例
             assert store1 is store2
+

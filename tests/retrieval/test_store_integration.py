@@ -7,8 +7,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-# 确保 backend 路径可用
-sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+# 确保项目根路径可用
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 
 class TestLanceStoreRealInit:
@@ -294,3 +294,5 @@ class TestLanceStoreIndexManagement:
 
         indices = store.list_indices()
         assert isinstance(indices, list)
+
+

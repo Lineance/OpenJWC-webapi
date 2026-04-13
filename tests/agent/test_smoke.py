@@ -1,9 +1,9 @@
 """Smoke tests for ReActAgent with LLM integration.
 
 Run with:
-  pytest backend/tests/agent/test_smoke.py -v
-  pytest backend/tests/agent/test_smoke.py -v -k llm  # only LLM tests
-  pytest backend/tests/agent/test_smoke.py -v -k heuristic  # only heuristic tests
+  pytest tests/agent/test_smoke.py -v
+  pytest tests/agent/test_smoke.py -v -k llm  # only LLM tests
+  pytest tests/agent/test_smoke.py -v -k heuristic  # only heuristic tests
 """
 
 import os
@@ -13,8 +13,8 @@ from typing import Any
 
 import pytest
 
-# Ensure backend is in path
-ROOT = Path(__file__).resolve().parents[3]
+# Ensure project root is in path
+ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
@@ -50,9 +50,9 @@ def _load_env() -> None:
     """Load environment variables once per process."""
     from dotenv import load_dotenv
 
-    backend_dir = Path(__file__).resolve().parents[3]
-    load_dotenv(backend_dir / "backend" / "agent" / ".env", override=False)
-    load_dotenv(backend_dir / "backend" / ".env", override=False)
+    project_root = Path(__file__).resolve().parents[2]
+    load_dotenv(project_root / "app" / "infrastructure" / "agent" / ".env", override=False)
+    load_dotenv(project_root / ".env", override=False)
 
 
 def _has_api_key() -> bool:
@@ -167,3 +167,5 @@ async def test_heuristic_mode_with_limit():
     # With max_steps=1, should still produce done event
     event_types = [e.type for e in events]
     assert "done" in event_types, "Should produce done event even with limit=1"
+
+
