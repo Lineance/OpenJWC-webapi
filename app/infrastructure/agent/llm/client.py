@@ -117,7 +117,7 @@ class LLMDecisionClient:
 
     @staticmethod
     def default_model() -> str:
-        return os.getenv("SEU_WUHUB_AGENT_MODEL", "openai/gpt-4o-mini")
+        return os.getenv("OPENJWC_AGENT_MODEL", "openai/gpt-4o-mini")
 
     async def decide_action(
         self,
@@ -145,7 +145,9 @@ class LLMDecisionClient:
             "current_date": now.date().isoformat(),
             "current_datetime": now.isoformat(timespec="seconds"),
             "timezone": "Asia/Shanghai",
-            "history": self._trim_history_by_budget(history, self._planner_history_char_budget),
+            "history": self._trim_history_by_budget(
+                history, self._planner_history_char_budget
+            ),
             "available_tools": available_tools,
             "rules": [
                 "Prefer search_keyword for general campus Q&A",
@@ -164,14 +166,19 @@ class LLMDecisionClient:
                 model=self._model,
                 messages=[
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": json.dumps(user_payload, ensure_ascii=False)},
+                    {
+                        "role": "user",
+                        "content": json.dumps(user_payload, ensure_ascii=False),
+                    },
                 ],
                 temperature=self._temperature,
                 max_tokens=self._max_tokens,
                 timeout=self._timeout_seconds,
             )
         except Exception as exc:  # noqa: BLE001
-            logger.warning("LLM planning failed, fallback to heuristic planner: %s", exc)
+            logger.warning(
+                "LLM planning failed, fallback to heuristic planner: %s", exc
+            )
             return None
 
         choices = getattr(response, "choices", None)
@@ -184,7 +191,9 @@ class LLMDecisionClient:
         if not content:
             return None
 
-        parsed, parse_error = parse_action_detailed(content, available_tools=available_tools)
+        parsed, parse_error = parse_action_detailed(
+            content, available_tools=available_tools
+        )
         if not parsed and self._planner_retry_parse_once:
             parsed = await self._retry_parse_action_once(
                 raw_output=content,
@@ -247,7 +256,9 @@ class LLMDecisionClient:
             "current_date": now.date().isoformat(),
             "current_datetime": now.isoformat(timespec="seconds"),
             "timezone": "Asia/Shanghai",
-            "history": self._trim_history_by_budget(history, self._final_history_char_budget),
+            "history": self._trim_history_by_budget(
+                history, self._final_history_char_budget
+            ),
             "observations": self._trim_observations_by_budget(
                 observations, self._final_observations_char_budget
             ),
@@ -258,7 +269,10 @@ class LLMDecisionClient:
                 model=self._model,
                 messages=[
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
+                    {
+                        "role": "user",
+                        "content": json.dumps(payload, ensure_ascii=False),
+                    },
                 ],
                 # Use a low temperature for final answers to keep them deterministic and
                 # closely grounded in the given observations, avoiding creative deviations.
@@ -267,7 +281,9 @@ class LLMDecisionClient:
                 timeout=self._timeout_seconds,
             )
         except Exception as exc:  # noqa: BLE001
-            logger.warning("LLM final answer generation failed, fallback to template: %s", exc)
+            logger.warning(
+                "LLM final answer generation failed, fallback to template: %s", exc
+            )
             return None
 
         choices = getattr(response, "choices", None)

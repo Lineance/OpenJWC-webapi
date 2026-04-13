@@ -6,13 +6,13 @@ from pydantic import BaseModel, Field
 
 
 def _default_llm_model() -> str:
-    return os.getenv("SEU_WUHUB_AGENT_MODEL", "openai/gpt-4o-mini")
+    return os.getenv("OPENJWC_AGENT_MODEL", "openai/gpt-4o-mini")
 
 
 class AgentConfig(BaseModel):
     llm_model: str = Field(default_factory=_default_llm_model)
     llm_timeout_seconds: float = Field(
-        default_factory=lambda: float(os.getenv("SEU_WUHUB_LLM_TIMEOUT_SECONDS", "45")),
+        default_factory=lambda: float(os.getenv("OPENJWC_LLM_TIMEOUT_SECONDS", "45")),
         gt=0,
     )
     max_steps: int = Field(default=6, ge=1, le=10)

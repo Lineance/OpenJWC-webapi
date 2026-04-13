@@ -183,9 +183,9 @@ class ArticleRepository:
             update_data[ArticleFields.LAST_UPDATED] = datetime.now()
 
             # 使用 merge_insert 进行更新
-            self._table.merge_insert(ArticleFields.NEWS_ID).when_matched_update_all().execute(
-                [update_data]
-            )
+            self._table.merge_insert(
+                ArticleFields.NEWS_ID
+            ).when_matched_update_all().execute([update_data])
             logger.debug(f"Updated article: {news_id}")
             return True
         except Exception as e:
@@ -203,12 +203,10 @@ class ArticleRepository:
             是否成功
         """
         try:
-            # LanceDB 不支持直接删除，需要过滤查询
-            # 这里使用覆盖写入的方式实现"软删除"
-            logger.warning(
-                f"LanceDB doesn't support direct deletion, article {news_id} marked for cleanup"
-            )
-            return False
+            safe_news_id = sanitize(news_id)
+            self._table.delete(f"{ArticleFields.NEWS_ID} = '{safe_news_id}'")
+            logger.info(f"Deleted article from LanceDB: {news_id}")
+            return True
         except Exception as e:
             logger.error(f"Failed to delete article {news_id}: {e}")
             return False
@@ -231,7 +229,9 @@ class ArticleRepository:
         try:
             results = self._table.search().limit(limit).offset(offset).to_list()
             return sorted(
-                results, key=lambda x: x.get(ArticleFields.PUBLISH_DATE, ""), reverse=True
+                results,
+                key=lambda x: x.get(ArticleFields.PUBLISH_DATE, ""),
+                reverse=True,
             )
         except (OSError, PermissionError, IOError) as e:
             logger.error(f"Failed to find all articles: {e}")
@@ -260,7 +260,9 @@ class ArticleRepository:
                 .to_list()
             )
             return sorted(
-                results, key=lambda x: x.get(ArticleFields.PUBLISH_DATE, ""), reverse=True
+                results,
+                key=lambda x: x.get(ArticleFields.PUBLISH_DATE, ""),
+                reverse=True,
             )
         except Exception as e:
             logger.error(f"Failed to find articles by source {source_site}: {e}")
@@ -286,7 +288,9 @@ class ArticleRepository:
                 .to_list()
             )
             return sorted(
-                results, key=lambda x: x.get(ArticleFields.PUBLISH_DATE, ""), reverse=True
+                results,
+                key=lambda x: x.get(ArticleFields.PUBLISH_DATE, ""),
+                reverse=True,
             )
         except Exception as e:
             logger.error(f"Failed to find articles by author {author}: {e}")
@@ -316,7 +320,9 @@ class ArticleRepository:
             )
             results = self._table.search().where(where_clause).limit(limit).to_list()
             return sorted(
-                results, key=lambda x: x.get(ArticleFields.PUBLISH_DATE, ""), reverse=True
+                results,
+                key=lambda x: x.get(ArticleFields.PUBLISH_DATE, ""),
+                reverse=True,
             )
         except Exception as e:
             logger.error(f"Failed to find articles by date range: {e}")
@@ -346,7 +352,9 @@ class ArticleRepository:
             where_clause = " OR ".join(tag_conditions)
             results = self._table.search().where(where_clause).limit(limit).to_list()
             return sorted(
-                results, key=lambda x: x.get(ArticleFields.PUBLISH_DATE, ""), reverse=True
+                results,
+                key=lambda x: x.get(ArticleFields.PUBLISH_DATE, ""),
+                reverse=True,
             )
         except Exception as e:
             logger.error(f"Failed to find articles by tags {tags}: {e}")
@@ -365,7 +373,11 @@ class ArticleRepository:
         """
         try:
             safe_query = sanitize(query)
-            results = self._table.search(query=safe_query, query_type="fts").limit(limit).to_list()
+            results = (
+                self._table.search(query=safe_query, query_type="fts")
+                .limit(limit)
+                .to_list()
+            )
             return cast("list[dict[str, Any]]", results)
         except Exception as e:
             logger.error(f"Failed to search text '{query}': {e}")
@@ -407,7 +419,9 @@ class ArticleRepository:
             日期到数量的映射
         """
         try:
-            results = self._table.search().select([ArticleFields.PUBLISH_DATE]).to_list()
+            results = (
+                self._table.search().select([ArticleFields.PUBLISH_DATE]).to_list()
+            )
             counts: dict[str, int] = {}
 
             for doc in results:
@@ -452,9 +466,9 @@ class ArticleRepository:
                 update[ArticleFields.LAST_UPDATED] = datetime.now()
 
             # 执行批量更新
-            self._table.merge_insert(ArticleFields.NEWS_ID).when_matched_update_all().execute(
-                updates
-            )
+            self._table.merge_insert(
+                ArticleFields.NEWS_ID
+            ).when_matched_update_all().execute(updates)
             logger.info(f"Bulk updated {len(updates)} articles")
             return len(updates)
         except Exception as e:
@@ -471,8 +485,14 @@ class ArticleRepository:
         Returns:
             成功删除的数量
         """
-        logger.warning("LanceDB doesn't support bulk deletion directly")
-        return 0
+        if not news_ids:
+            return 0
+
+        deleted = 0
+        for news_id in news_ids:
+            if self.delete(news_id):
+                deleted += 1
+        return deleted
 
     # =========================================================================
     # 辅助方法
@@ -487,7 +507,10 @@ class ArticleRepository:
         try:
             safe_url = sanitize(url)
             results = (
-                self._table.search().where(f"{ArticleFields.URL} = '{safe_url}'").limit(1).to_list()
+                self._table.search()
+                .where(f"{ArticleFields.URL} = '{safe_url}'")
+                .limit(1)
+                .to_list()
             )
             return len(results) > 0
         except Exception as e:
@@ -503,7 +526,9 @@ class ArticleRepository:
         try:
             results = self._table.search().limit(limit).to_list()
             return sorted(
-                results, key=lambda x: x.get(ArticleFields.PUBLISH_DATE, ""), reverse=False
+                results,
+                key=lambda x: x.get(ArticleFields.PUBLISH_DATE, ""),
+                reverse=False,
             )
         except Exception as e:
             logger.error(f"Failed to get oldest articles: {e}")

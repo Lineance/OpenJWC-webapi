@@ -39,7 +39,7 @@ OpenJWC-WebAPI/
 ## 技术栈
 
 - **后端框架**：FastAPI >= 0.135.1 
-- **数据库**：SQLite + ChromaDB 向量数据库
+- **数据库**：SQLite + LanceDB 向量数据库
 - **AI服务**：DeepSeek API + 智谱AI API
 - **认证**：JWT + bcrypt加密
 - **异步HTTP**：httpx + uvicorn
@@ -52,6 +52,14 @@ OpenJWC-WebAPI/
 
 - Python >= 3.12 
 - pip 包管理器
+
+### 环境变量
+
+- 项目根目录提供示例配置文件 [ .env.example ](.env.example)
+- 生产环境请至少设置以下变量：
+   - `OPENJWC_SECRET_KEY`：JWT 签名密钥
+   - `OPENJWC_JWT_ALGORITHM`：JWT 算法（默认 HS256）
+   - `LANCE_DB_PATH`：LanceDB 数据目录（可选，默认 data/lancedb）
 
 ### 安装步骤
 

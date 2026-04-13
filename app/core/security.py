@@ -1,12 +1,18 @@
 # app/core/security.py
+import os
 from datetime import datetime, timedelta, timezone
-import jwt
+
 import bcrypt
+import jwt
 from passlib.context import CryptContext
+
 from app.core.config import ACCESS_TOKEN_EXPIRE_MINUTES
 
-SECRET_KEY = "your-super-secret-key-change-this-in-production"
-ALGORITHM = "HS256"
+SECRET_KEY = os.getenv(
+    "OPENJWC_SECRET_KEY",
+    os.getenv("SECRET_KEY", "your-super-secret-key-change-this-in-production"),
+)
+ALGORITHM = os.getenv("OPENJWC_JWT_ALGORITHM", "HS256")
 
 # 密码加密工具
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")

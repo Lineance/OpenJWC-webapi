@@ -74,7 +74,7 @@ def create_agent(mode: str = "llm") -> ReActAgent:
         llm_timeout_seconds=20.0,
         temperature=0.2,
         max_tokens=512,
-        llm_model=os.getenv("SEU_WUHUB_AGENT_MODEL", LLMDecisionClient.default_model()),
+        llm_model=os.getenv("OPENJWC_AGENT_MODEL", LLMDecisionClient.default_model()),
     )
 
     registry = ToolRegistry()
@@ -137,7 +137,9 @@ async def test_llm_mode_basic():
     async for event in agent.run_stream(
         query="请帮我总结本周教学通知", session_id="test-llm", history=[]
     ):
-        planner = event.payload.get("planner") if isinstance(event.payload, dict) else None
+        planner = (
+            event.payload.get("planner") if isinstance(event.payload, dict) else None
+        )
         if event.type == "tool_call":
             saw_tool_call = True
             if planner == "llm":

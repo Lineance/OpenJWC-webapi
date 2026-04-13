@@ -72,7 +72,7 @@ def build_decision_client(args: argparse.Namespace) -> LLMDecisionClient | None:
     if args.mode == "heuristic":
         return None
 
-    model = os.getenv("SEU_WUHUB_AGENT_MODEL", LLMDecisionClient.default_model())
+    model = os.getenv("OPENJWC_AGENT_MODEL", LLMDecisionClient.default_model())
     return LLMDecisionClient(
         model=model,
         temperature=args.temperature,
@@ -91,7 +91,7 @@ async def run_smoke(args: argparse.Namespace) -> int:
         llm_timeout_seconds=args.llm_timeout,
         temperature=args.temperature,
         max_tokens=args.max_tokens,
-        llm_model=os.getenv("SEU_WUHUB_AGENT_MODEL", LLMDecisionClient.default_model()),
+        llm_model=os.getenv("OPENJWC_AGENT_MODEL", LLMDecisionClient.default_model()),
     )
 
     registry = ToolRegistry()
@@ -113,8 +113,12 @@ async def run_smoke(args: argparse.Namespace) -> int:
     saw_done = False
     saw_llm_planner = False
 
-    async for event in agent.run_stream(query=args.query, session_id=args.session_id, history=[]):
-        planner = event.payload.get("planner") if isinstance(event.payload, dict) else None
+    async for event in agent.run_stream(
+        query=args.query, session_id=args.session_id, history=[]
+    ):
+        planner = (
+            event.payload.get("planner") if isinstance(event.payload, dict) else None
+        )
         if event.type == "tool_call":
             saw_tool_call = True
             if planner == "llm":
