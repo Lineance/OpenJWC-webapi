@@ -394,7 +394,7 @@ class ReActAgent:
                 lines.append("如需，我可以继续按标签、来源或更严格时间范围进一步筛选。")
                 return "\n".join(lines)
 
-            lines = [f"根据你的问题"{query}"，我找到以下相关信息："]
+            lines = [f"根据你的问题\"{query}\"，我找到以下相关信息："]
             for idx, item in enumerate(results[:5], start=1):
                 title = item.get("title", "(无标题)")
                 source = item.get("source", "未知来源")

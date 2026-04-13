@@ -4,7 +4,7 @@ from app.utils.openjwc_cli import SQLCLI
 from app.utils.logging_manager import setup_logger
 from contextlib import asynccontextmanager
 from app.utils.ping_check import diagnose_network_environment
-from app.services.sql_db_service import db
+from app.infrastructure.storage.sqlite.sql_db_service import db
 import os
 
 
