@@ -99,6 +99,8 @@ from app.api.v1.client import notices as client_notices
 from app.api.v1.client import register as client_register
 from app.api.v1.client import search as client_search
 from app.api.v1.client import submission as client_submission
+from app.infrastructure.storage.lancedb.connection import get_connection
+from app.infrastructure.storage.lancedb.repository import get_article_repository
 from app.infrastructure.storage.sqlite.sql_db_service import db
 
 
@@ -114,6 +116,21 @@ def isolated_db(tmp_path: Path, admin_credentials: dict[str, str]) -> None:
     db.init_db()
     db._sync_settings()
     db.create_admin(admin_credentials["username"], admin_credentials["password"])
+
+    # Keep tests deterministic: clear LanceDB article data before each test.
+    try:
+        repo = get_article_repository()
+        existing_ids = [
+            item.get("news_id")
+            for item in repo.find_all(limit=100000, offset=0)
+            if item.get("news_id")
+        ]
+        if existing_ids:
+            repo.bulk_delete(existing_ids)
+            get_connection().rebuild_article_order()
+    except Exception:
+        pass
+
     yield
     db.db_path = original_db_path
 

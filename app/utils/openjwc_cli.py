@@ -1,14 +1,18 @@
-from app.application.submission.submission_service import audit_and_import_submission
-from app.infrastructure.storage.sqlite.sql_db_service import db
-from app.utils.ping_check import diagnose_network_environment
-from app.utils.logging_manager import setup_logger
-from rich import print
-import cmd2
 import asyncio
-from app.infrastructure.crawler.rust_crawler_wrapper import run_crawler_job
 from datetime import date
 
+import cmd2
+from rich import print
+
+from app.application.submission.submission_service import audit_and_import_submission
+from app.infrastructure.crawler.rust_crawler_wrapper import run_crawler_job
+from app.infrastructure.storage.lancedb.repository import get_article_repository
+from app.infrastructure.storage.sqlite.sql_db_service import db
+from app.utils.logging_manager import setup_logger
+from app.utils.ping_check import diagnose_network_environment
+
 logger = setup_logger("cli_logs")
+article_repo = get_article_repository()
 
 
 class SQLCLI(cmd2.Cmd):
@@ -62,7 +66,7 @@ class SQLCLI(cmd2.Cmd):
             for key in keys:
                 print(key)
         elif args[0] == "notices":
-            print(db.get_all_notices()[: int(args[1])])
+            print(article_repo.get_latest(limit=int(args[1])))
         elif args[0] == "submissions":
             status = args[1]
             print(db.get_submissions_by_status(status))
@@ -120,7 +124,7 @@ class SQLCLI(cmd2.Cmd):
         elif args[0] == "notices":
             ids = args[1:]
             for id in ids:
-                deleted = db.delete_notice_by_id(id)
+                deleted = article_repo.delete(id)
                 logger.info(f"移除{id}: {deleted}")
 
     def do_check(self, arg: str):
@@ -184,4 +188,3 @@ class SQLCLI(cmd2.Cmd):
             logger.info("success.")
         else:
             logger.warning("fail.")
-

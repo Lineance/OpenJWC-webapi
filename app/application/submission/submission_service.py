@@ -3,7 +3,6 @@ from app.domain.submission import (
     SubmissionStatus,
     create_submission_record,
     parse_status,
-    to_notice_data,
     validate_submission_size,
 )
 from app.infrastructure.ingestion.adapters.submission import SubmissionAdapter
@@ -87,24 +86,16 @@ def audit_and_import_submission(submission_id: str, status: str, review: str) ->
             logger.warning(f"submissions表中不存在ID为 {submission_id} 的记录")
             return False
 
-        notice_data = to_notice_data(record)
-        if len(str(notice_data["content_text"])) > _get_submission_max_length():
+        if len(str(record.content_text)) > _get_submission_max_length():
             logger.warning("该投稿文字量过大，已拦截入库。")
             return False
 
-        is_inserted = db.insert_notice_from_dict(notice_data)
-        if not is_inserted:
-            logger.warning(
-                f"notices表中已存在ID为 {notice_data['id']} 的记录，无法导入"
-            )
-            return False
         doc = submission_adapter.convert_one(record, review)
         process_result = submission_pipeline.process_one(doc)
         if process_result.status not in ("success", "duplicate"):
             logger.error(
                 f"投稿入库到 ingestion pipeline 失败: {process_result.status} {process_result.message}"
             )
-            db.delete_notice_by_id(str(notice_data["id"]))
             return False
 
     updated = submission_repository.update_status(submission_id, status, review)

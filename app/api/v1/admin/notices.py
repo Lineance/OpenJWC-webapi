@@ -6,7 +6,6 @@ from app.api.dependencies import verify_admin_token
 from app.api.logging_route import LoggingRoute
 from app.infrastructure.storage.lancedb.connection import get_connection
 from app.infrastructure.storage.lancedb.repository import get_article_repository
-from app.infrastructure.storage.sqlite.sql_db_service import db
 from app.models.schemas import ResponseModel
 from app.utils.logging_manager import setup_logger
 
@@ -28,14 +27,17 @@ async def get_latest_notices(
     """
     logger.info(f"Request ID: {admin_info['x_request_id']}")
     logger.info(f"Client Version: {admin_info['x_client_version']}")
+    article_repo = get_article_repository()
     offset = size * (page - 1)
     limit = size
-    total, notices = db.get_notices_for_app(label=label, offset=offset, limit=limit)
+    total, notices = article_repo.list_for_notices(
+        label=label, offset=offset, limit=limit
+    )
     return ResponseModel(
         msg="获取成功",
         data={
             "total_returned": total,
-            "total_label": db.get_total_labels(),
+            "total_label": article_repo.get_notice_total_labels(),
             "notices": notices,
         },
     )
@@ -52,7 +54,10 @@ async def get_notices_labels(
     """
     logger.info(f"Request ID: {admin_info['x_request_id']}")
     logger.info(f"Client Version: {admin_info['x_client_version']}")
-    return ResponseModel(msg="获取成功", data={"labels": db.get_labels()})
+    article_repo = get_article_repository()
+    return ResponseModel(
+        msg="获取成功", data={"labels": article_repo.get_notice_labels()}
+    )
 
 
 @router.delete("/{notice_id}", response_model=ResponseModel)
@@ -66,21 +71,12 @@ async def delete_notice(
     logger.info(f"Request ID: {admin_info['x_request_id']}")
     logger.info(f"Client Version: {admin_info['x_client_version']}")
     try:
-        # 先检查 SQL 记录是否存在，避免无意义地操作向量库。
-        if not db.get_notice_info(notice_id=notice_id):
+        article_repo = get_article_repository()
+        if not article_repo.get_notice_info(notice_id):
             return ResponseModel(msg="入库资讯不存在。", data={})
 
-        # 先删除 LanceDB 主表，防止出现“列表删了但检索仍命中”的幽灵数据。
-        article_repo = get_article_repository()
         if not article_repo.delete(news_id=notice_id):
             logger.error(f"Failed to delete notice from LanceDB: notice_id={notice_id}")
-            return ResponseModel(msg="入库资讯删除失败。", data={})
-
-        deleted = db.delete_notice_by_id(notice_id=notice_id)
-        if not deleted:
-            logger.error(
-                f"Failed to delete notice from SQLite after LanceDB deletion: {notice_id}"
-            )
             return ResponseModel(msg="入库资讯删除失败。", data={})
 
         get_connection().rebuild_article_order()

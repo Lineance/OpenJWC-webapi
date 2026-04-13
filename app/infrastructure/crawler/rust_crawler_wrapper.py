@@ -58,19 +58,15 @@ def execute_crawling_task():
 
 
 def process_crawling_result():
-    """处理爬虫结果，将数据同步到数据库和检索索引"""
+    """处理爬虫结果，将数据同步到 LanceDB 检索索引"""
     if NOTICE_JSON.exists():
-        sync_result = db.sync_from_json(str(NOTICE_JSON))
-        logger.info(
-            f"数据库同步完成: 新增 {sync_result['new_added']} 条，更新 {sync_result['updated']} 条。"
-        )
         sync_search_index()
     else:
         logger.error("未找到 output.json，爬虫可能未成功输出文件。")
 
 
 def run_crawler_job():
-    """执行完整的：爬取 -> 存 JSON -> 同步数据库 流程"""
+    """执行完整的：爬取 -> 存 JSON -> 同步 LanceDB 流程"""
     logger.info("开始执行定时爬虫任务")
     try:
         execute_crawling_task()

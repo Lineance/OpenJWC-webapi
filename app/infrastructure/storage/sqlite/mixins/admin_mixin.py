@@ -1,9 +1,10 @@
-from typing import Dict, Optional
-from app.infrastructure.storage.sqlite.db_interface import DBInterface, logger
-from app.core.security import get_password_hash
-from app.core.config import ALLOWED_SETTINGS, ADMIN_CONFIG_PATH
-import os
 import json
+import os
+from typing import Dict, Optional
+
+from app.core.config import ADMIN_CONFIG_PATH, ALLOWED_SETTINGS
+from app.core.security import get_password_hash
+from app.infrastructure.storage.sqlite.db_interface import DBInterface, logger
 
 
 class AdminMixin:
@@ -199,8 +200,15 @@ class AdminMixin:
         """获取首页概览数据"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT COUNT(*) as count FROM notices")
-            total_notices = cursor.fetchone()["count"]
+            from app.infrastructure.storage.lancedb.repository import (
+                get_article_repository,
+            )
+
+            try:
+                total_notices = get_article_repository().count()
+            except Exception as exc:
+                logger.warning(f"从LanceDB读取资讯总数失败，回退为0: {exc}")
+                total_notices = 0
             cursor.execute("SELECT COUNT(*) as count FROM api_keys WHERE is_active = 1")
             active_keys = cursor.fetchone()["count"]
 
@@ -237,4 +245,3 @@ class AdminMixin:
             )
             conn.commit()
             logger.info("所有系统配置已重置为默认值")
-

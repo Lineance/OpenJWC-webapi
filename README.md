@@ -9,7 +9,7 @@
 ### 主要功能
 
 -  **定期爬虫**：定时运行爬虫包装器爬取教务通知
--  **数据管理**：使用数据库管理资讯信息与系统设置
+-  **数据管理**：LanceDB 管理资讯主数据，SQLite 管理用户态与系统设置
 -  **API服务**：接受和处理用户请求
 -  **AI对话**：调用LLM API响应用户chat请求
 -  **RAG知识库**：使用RAG技术将教务资讯用作LLM的知识库
@@ -39,7 +39,7 @@ OpenJWC-WebAPI/
 ## 技术栈
 
 - **后端框架**：FastAPI >= 0.135.1 
-- **数据库**：SQLite + LanceDB 向量数据库
+- **数据库**：LanceDB（资讯主存储）+ SQLite（用户态/系统配置）
 - **AI服务**：DeepSeek API + 智谱AI API
 - **认证**：JWT + bcrypt加密
 - **异步HTTP**：httpx + uvicorn
@@ -110,19 +110,18 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 
 ## 数据库设计
 
-### 主要数据表
+### 主要数据结构
 
-#### notices表
+#### LanceDB `articles` 表（资讯主数据）
 
-- `id` - 通知ID（主键）
-- `label` - 标签
+- `news_id` - 资讯ID（主键）
 - `title` - 标题
-- `date` - 日期
-- `detail_url` - 详情链接
-- `content_text` - 内容文本
-- `is_pushed` - 是否已推送（推送功能因为技术原因被搁置）
+- `publish_date` - 发布时间
+- `url` - 详情链接
+- `content_text` - 正文
+- `tags` - 标签
 
-#### api_keys表
+#### SQLite `api_keys` 表
 
 - `key_string` - API密钥
 - `owner_name` - 所有者名称

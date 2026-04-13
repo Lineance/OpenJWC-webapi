@@ -3,6 +3,12 @@ from __future__ import annotations
 import pytest
 from httpx import AsyncClient
 
+from app.infrastructure.storage.lancedb import ArticleFields, get_article_repository
+from app.infrastructure.storage.lancedb.schema import (
+    CONTENT_EMBEDDING_DIM,
+    TITLE_EMBEDDING_DIM,
+)
+
 
 async def _admin_login(
     client: AsyncClient,
@@ -94,6 +100,10 @@ async def test_submission_review_and_notice_visibility_flow(
 
     class DummyPipeline:
         def process_one(self, doc):
+            payload = dict(doc)
+            payload[ArticleFields.TITLE_EMBEDDING] = [0.0] * TITLE_EMBEDDING_DIM
+            payload[ArticleFields.CONTENT_EMBEDDING] = [0.0] * CONTENT_EMBEDDING_DIM
+            get_article_repository().add_one(payload)
             return DummyPipelineResult()
 
     monkeypatch.setattr(submission_service, "submission_pipeline", DummyPipeline())

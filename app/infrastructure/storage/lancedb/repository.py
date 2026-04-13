@@ -10,6 +10,7 @@ Responsibilities:
     - 事务性写入
 """
 
+import json
 import logging
 from datetime import datetime
 from typing import Any, cast
@@ -20,6 +21,72 @@ from .guard import SQLGuard, sanitize
 from .schema import ArticleFields, ArticleRecord
 
 logger = logging.getLogger(__name__)
+
+
+def _safe_publish_date_str(value: Any) -> str:
+    if value is None:
+        return ""
+    if hasattr(value, "isoformat"):
+        return str(value.isoformat())
+    return str(value)
+
+
+def _extract_metadata(record: dict[str, Any]) -> dict[str, Any]:
+    metadata = record.get(ArticleFields.METADATA)
+    if isinstance(metadata, dict):
+        return metadata
+    if isinstance(metadata, str) and metadata:
+        try:
+            loaded = json.loads(metadata)
+            if isinstance(loaded, dict):
+                return loaded
+        except json.JSONDecodeError:
+            return {}
+    return {}
+
+
+def _extract_label(record: dict[str, Any]) -> str | None:
+    tags = record.get(ArticleFields.TAGS)
+    if isinstance(tags, list) and tags:
+        first = tags[0]
+        return str(first) if first is not None else None
+
+    metadata = _extract_metadata(record)
+    label = metadata.get("label")
+    if label is not None:
+        return str(label)
+
+    source = record.get(ArticleFields.SOURCE_SITE)
+    return str(source) if source else None
+
+
+def _to_notice_item(record: dict[str, Any]) -> dict[str, Any]:
+    metadata = _extract_metadata(record)
+    attachments = record.get(ArticleFields.ATTACHMENTS)
+    if not isinstance(attachments, list):
+        attachments = []
+
+    detail_url = metadata.get("detail_url") or record.get(ArticleFields.URL) or ""
+    is_page = bool(metadata.get("is_page", True))
+
+    return {
+        "id": str(record.get(ArticleFields.NEWS_ID, "")),
+        "label": _extract_label(record),
+        "title": str(record.get(ArticleFields.TITLE, "")),
+        "date": _safe_publish_date_str(record.get(ArticleFields.PUBLISH_DATE)),
+        "detail_url": str(detail_url),
+        "is_page": is_page,
+        "content_text": str(record.get(ArticleFields.CONTENT_TEXT, "") or ""),
+        "attachments": [str(item) for item in attachments],
+    }
+
+
+def _notice_sort_key(record: dict[str, Any]) -> tuple[str, str]:
+    # Stable ordering for pagination: publish_date desc, then news_id desc.
+    return (
+        _safe_publish_date_str(record.get(ArticleFields.PUBLISH_DATE)),
+        str(record.get(ArticleFields.NEWS_ID, "")),
+    )
 
 
 # =============================================================================
@@ -533,6 +600,86 @@ class ArticleRepository:
         except Exception as e:
             logger.error(f"Failed to get oldest articles: {e}")
             return []
+
+    # =========================================================================
+    # Legacy notices-compatible queries
+    # =========================================================================
+
+    def list_for_notices(
+        self,
+        limit: int = 20,
+        offset: int = 0,
+        label: str | None = None,
+    ) -> tuple[int, list[dict[str, Any]]]:
+        """
+        Return notice-compatible list data from LanceDB.
+
+        This replaces SQLite notices list queries while preserving response shape.
+        """
+        try:
+            docs = self._table.search().to_list()
+            if label is not None:
+                docs = [doc for doc in docs if _extract_label(doc) == label]
+
+            docs.sort(key=_notice_sort_key, reverse=True)
+            total = len(docs)
+            page_docs = docs[offset : offset + limit]
+            return total, [_to_notice_item(doc) for doc in page_docs]
+        except Exception as e:
+            logger.error(f"Failed to list notices from LanceDB: {e}")
+            return 0, []
+
+    def get_notice_labels(self) -> list[str]:
+        """Return unique labels sorted by latest appearance."""
+        try:
+            docs = self._table.search().to_list()
+            docs.sort(key=_notice_sort_key, reverse=True)
+
+            labels: list[str] = []
+            seen: set[str] = set()
+            for doc in docs:
+                label = _extract_label(doc)
+                if not label:
+                    continue
+                if label in seen:
+                    continue
+                seen.add(label)
+                labels.append(label)
+            return labels
+        except Exception as e:
+            logger.error(f"Failed to get notice labels from LanceDB: {e}")
+            return []
+
+    def get_notice_total_labels(self) -> int:
+        """Return count of unique labels for notices endpoints."""
+        return len(self.get_notice_labels())
+
+    def get_notice_info(self, news_id: str) -> dict[str, Any] | None:
+        """Return lightweight notice info by ID for admin checks."""
+        doc = self.get(news_id)
+        if not doc:
+            return None
+        mapped = _to_notice_item(doc)
+        return {
+            "id": mapped["id"],
+            "label": mapped["label"],
+            "title": mapped["title"],
+            "date": mapped["date"],
+            "detail_url": mapped["detail_url"],
+            "is_page": mapped["is_page"],
+        }
+
+    def get_notice_content(self, news_id: str) -> dict[str, Any] | None:
+        """Return title/content/date payload for chat-context compatibility."""
+        doc = self.get(news_id)
+        if not doc:
+            return None
+
+        return {
+            "title": str(doc.get(ArticleFields.TITLE, "")),
+            "content_text": str(doc.get(ArticleFields.CONTENT_TEXT, "") or ""),
+            "date": _safe_publish_date_str(doc.get(ArticleFields.PUBLISH_DATE)),
+        }
 
 
 # =============================================================================

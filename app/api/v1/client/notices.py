@@ -1,11 +1,13 @@
-from fastapi import APIRouter, Query, Depends
-from app.models.schemas import ResponseModel
-from app.infrastructure.storage.sqlite.sql_db_service import db
-from app.utils.logging_manager import setup_logger
-from app.api.logging_route import LoggingRoute
-from typing import Annotated
-from app.api.dependencies import optional_verify_api_key
 from asyncio import to_thread
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Query
+
+from app.api.dependencies import optional_verify_api_key
+from app.api.logging_route import LoggingRoute
+from app.infrastructure.storage.lancedb.repository import get_article_repository
+from app.models.schemas import ResponseModel
+from app.utils.logging_manager import setup_logger
 
 logger = setup_logger("client_notice_logs")
 
@@ -22,14 +24,17 @@ async def get_latest_notices(
     """
     获取教务处最新资讯列表（支持分页）
     """
+    article_repo = get_article_repository()
     offset = size * (page - 1)
     limit = size
-    total, notices = await to_thread(db.get_notices_for_app, limit, offset, label)
+    total, notices = await to_thread(
+        article_repo.list_for_notices, limit, offset, label
+    )
     return ResponseModel(
         msg="获取成功",
         data={
             "total_returned": total,
-            "total_label": db.get_total_labels(),
+            "total_label": await to_thread(article_repo.get_notice_total_labels),
             "notices": notices,
         },
     )
@@ -43,7 +48,7 @@ async def get_notices_labels(
     """
     获取所有标签。
     """
+    article_repo = get_article_repository()
     return ResponseModel(
-        msg="获取成功", data={"labels": await to_thread(db.get_labels)}
+        msg="获取成功", data={"labels": await to_thread(article_repo.get_notice_labels)}
     )
-

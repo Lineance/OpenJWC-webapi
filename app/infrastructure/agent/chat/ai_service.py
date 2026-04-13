@@ -16,6 +16,7 @@ from tenacity import (
 from app.core.config import DATA_DIR
 from app.infrastructure.agent.chat.prompt_engine import PromptEngine
 from app.infrastructure.retrieval.engine import RetrievalEngine
+from app.infrastructure.storage.lancedb.repository import get_article_repository
 from app.infrastructure.storage.sqlite.sql_db_service import db
 from app.models.schemas import ChatRequest
 from app.utils.logging_manager import setup_logger
@@ -26,6 +27,10 @@ http_client = httpx.AsyncClient(proxy=None, timeout=60.0)
 retrieval_engine = RetrievalEngine(
     db_path=str(DATA_DIR / "lancedb"), table_name="articles"
 )
+
+
+def _get_article_repo():
+    return get_article_repository()
 
 
 def _search_context(query: str, top_k: int) -> str:
@@ -111,7 +116,7 @@ async def get_ai_response(request: ChatRequest, use_rag=False):
 对于此类情形，你不必向用户求证，优先默认其为用户最新选中的资讯：
 """
         for notice_id in request.notice_ids:
-            target_notice = db.get_notice_content(notice_id)
+            target_notice = _get_article_repo().get_notice_content(notice_id)
             if target_notice:
                 logger.info(f"检测到用户指定资讯：{target_notice['title']}")
                 context += f"\n资讯标题：{target_notice['title']}"

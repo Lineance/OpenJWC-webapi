@@ -1,18 +1,15 @@
 import sqlite3
 
-from app.core.config import NOTICE_DB, NOTICE_JSON
+from app.core.config import NOTICE_DB
 from app.infrastructure.storage.sqlite.db_interface import logger
 from app.infrastructure.storage.sqlite.mixins.admin_mixin import AdminMixin
 from app.infrastructure.storage.sqlite.mixins.device_mixin import DeviceMixin
 from app.infrastructure.storage.sqlite.mixins.motto_mixin import MottoMixin
-from app.infrastructure.storage.sqlite.mixins.notice_mixin import NoticeMixin
 from app.infrastructure.storage.sqlite.mixins.submission_mixin import SubmissionMixin
 from app.infrastructure.storage.sqlite.mixins.validation_mixin import ValidationMixin
 
 
-class DBService(
-    NoticeMixin, ValidationMixin, AdminMixin, DeviceMixin, SubmissionMixin, MottoMixin
-):
+class DBService(ValidationMixin, AdminMixin, DeviceMixin, SubmissionMixin, MottoMixin):
     def __init__(self, db_path=NOTICE_DB):
         self.db_path = db_path
         self.init_db()
@@ -28,19 +25,6 @@ class DBService(
     def init_db(self):
         """初始化数据库表"""
         logger.info("正在尝试初始化sql数据库")
-        create_notices_sql = """
-        CREATE TABLE IF NOT EXISTS notices (
-            id TEXT PRIMARY KEY,
-            label TEXT,
-            title TEXT,
-            date TEXT,
-            detail_url TEXT,
-            is_page BOOLEAN,
-            content_text TEXT,
-            attachments TEXT,
-            is_pushed BOOLEAN DEFAULT 0  -- 0代表未推送，1代表已推送
-        )
-        """
         create_keys_sql = """
         CREATE TABLE IF NOT EXISTS api_keys (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -96,7 +80,6 @@ class DBService(
         """
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute(create_notices_sql)
             cursor.execute(create_keys_sql)
             cursor.execute(create_admin_sql)
             cursor.execute(create_index_sql)
@@ -106,6 +89,15 @@ class DBService(
             conn.commit()
             logger.info("sql数据库初始化完成")
 
+    def drop_table(self, table: str):
+        """CLI兼容：按名称删除表并重新初始化SQLite用户态表。"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(f"DROP TABLE IF EXISTS {table}")
+            conn.commit()
+            logger.info(f"{table}表结构已删除。")
+        self.init_db()
+
 
 # 单例模式导出，方便全局其他地方使用同一个实例
 db = DBService()
@@ -113,7 +105,5 @@ db = DBService()
 
 if __name__ == "__main__":
     db.init_db()
-
     db._sync_settings()
-    result = db.sync_from_json(NOTICE_JSON)
-    logger.info(f"同步完成: {result}")
+    logger.info("SQLite 用户态与系统设置初始化完成")

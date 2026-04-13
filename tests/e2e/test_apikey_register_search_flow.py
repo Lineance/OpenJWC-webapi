@@ -3,7 +3,11 @@ from __future__ import annotations
 import pytest
 from httpx import AsyncClient
 
-from app.infrastructure.storage.sqlite.sql_db_service import db
+from app.infrastructure.storage.lancedb import ArticleFields, get_article_repository
+from app.infrastructure.storage.lancedb.schema import (
+    CONTENT_EMBEDDING_DIM,
+    TITLE_EMBEDDING_DIM,
+)
 
 
 async def _admin_login(
@@ -58,16 +62,26 @@ async def test_apikey_register_notices_and_semantic_search_flow(
     assert register_resp.status_code == 200
     assert register_resp.json()["msg"] == "设备注册成功"
 
-    db.insert_notice_from_dict(
+    article_repo = get_article_repository()
+    article_repo.add_one(
         {
-            "id": "notice-e2e-001",
-            "label": "教务",
-            "title": "期中考试安排通知",
-            "date": "2026-04-01",
-            "detail_url": "https://example.com/n1",
-            "is_page": True,
-            "content_text": "请同学们按时参加期中考试。",
-            "attachment_urls": ["https://example.com/att1.pdf"],
+            ArticleFields.NEWS_ID: "notice-e2e-001",
+            ArticleFields.TITLE: "期中考试安排通知",
+            ArticleFields.PUBLISH_DATE: "2026-04-01",
+            ArticleFields.URL: "https://example.com/n1",
+            ArticleFields.SOURCE_SITE: "教务",
+            ArticleFields.TAGS: ["教务"],
+            ArticleFields.CONTENT_TEXT: "请同学们按时参加期中考试。",
+            ArticleFields.CONTENT_MARKDOWN: "请同学们按时参加期中考试。",
+            ArticleFields.CRAWL_VERSION: 1,
+            ArticleFields.TITLE_EMBEDDING: [0.0] * TITLE_EMBEDDING_DIM,
+            ArticleFields.CONTENT_EMBEDDING: [0.0] * CONTENT_EMBEDDING_DIM,
+            ArticleFields.METADATA: {
+                "label": "教务",
+                "detail_url": "https://example.com/n1",
+                "is_page": True,
+            },
+            ArticleFields.ATTACHMENTS: ["https://example.com/att1.pdf"],
         }
     )
 

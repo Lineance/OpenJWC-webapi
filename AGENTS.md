@@ -43,7 +43,7 @@ See `app/utils/openjwc_cli.py` for full command reference
 
 **Services** (`app/services/`): Business logic layer
 
-- `sql_db_service.py`: SQLite operations via mixins in `sql_mixins/`
+- `sql_db_service.py`: SQLite user/system state operations via mixins
 - `ai_service.py`: DeepSeek LLM with tenacity retry
 - `vector_db_service.py`: ChromaDB with ZhipuAI embeddings
 
@@ -51,7 +51,8 @@ See `app/utils/openjwc_cli.py` for full command reference
 
 - Admin accounts synced from `admins.json` on startup via `db.sync_admins_from_config()`
 - System settings stored in DB, see `app/core/config.py` for defaults (`ALLOWED_SETTINGS`)
-- SQLite DB at `data/jwc_notices.db` (auto-initialized)
+- LanceDB at `data/lancedb` for crawler/article primary storage
+- SQLite DB at `data/jwc_notices.db` for user/system/submission state
 - ChromaDB at `data/chroma_db`
 - Crawler binary: `bin/jwc-crawler` (external)
 
