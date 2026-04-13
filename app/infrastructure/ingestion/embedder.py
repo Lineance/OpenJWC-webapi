@@ -17,6 +17,7 @@ Responsibilities:
 import logging
 import os
 import threading
+from pathlib import Path
 from typing import Any, Literal, Self, cast
 
 from huggingface_hub import snapshot_download, try_to_load_from_cache
@@ -30,6 +31,7 @@ logger = logging.getLogger(__name__)
 
 # 标题模型：使用更简单的模型，避免网络问题
 TITLE_MODEL_NAME = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+TITLE_MODEL_FALLBACKS = ["sentence-transformers/all-MiniLM-L6-v2"]
 TITLE_EMBEDDING_DIM = 384
 
 # 正文模型：使用BGE模型，支持1024维向量
@@ -42,6 +44,81 @@ LOCAL_MODEL_CACHE = os.path.expanduser("~/.cache/huggingface/hub")
 # BGE 模型的检索前缀
 BGE_QUERY_PREFIX = "为这个句子生成表示以用于检索相关文章："
 BGE_PASSAGE_PREFIX = ""
+
+
+def _iter_model_cache_dirs() -> list[Path]:
+    """返回可能的 Hugging Face Hub 缓存目录（按优先级）。"""
+    cache_dirs: list[Path] = []
+
+    # 显式 hub 缓存目录
+    hub_cache = os.getenv("HUGGINGFACE_HUB_CACHE")
+    if hub_cache:
+        cache_dirs.append(Path(hub_cache).expanduser())
+
+    # HF_HOME 下的默认 hub 子目录
+    hf_home = os.getenv("HF_HOME")
+    if hf_home:
+        cache_dirs.append(Path(hf_home).expanduser() / "hub")
+
+    # 用户默认缓存目录
+    cache_dirs.append(Path(LOCAL_MODEL_CACHE).expanduser())
+
+    # 项目内临时缓存目录（用于离线部署/手动拷贝模型）
+    project_tmp_hub = (
+        Path(__file__).resolve().parents[3] / "tmp" / "huggingface" / "hub"
+    )
+    cache_dirs.append(project_tmp_hub)
+
+    unique_dirs: list[Path] = []
+    seen: set[str] = set()
+    for cache_dir in cache_dirs:
+        key = str(cache_dir)
+        if key in seen:
+            continue
+        seen.add(key)
+        unique_dirs.append(cache_dir)
+
+    return unique_dirs
+
+
+def _find_model_snapshot_path(model_name: str) -> str | None:
+    """从缓存目录中解析模型快照路径。"""
+    model_cache_key = f"models--{model_name.replace('/', '--')}"
+
+    for cache_root in _iter_model_cache_dirs():
+        model_dir = cache_root / model_cache_key
+        if not model_dir.exists():
+            continue
+
+        refs_main = model_dir / "refs" / "main"
+        if refs_main.exists():
+            try:
+                commit_hash = refs_main.read_text(encoding="utf-8").strip()
+                if commit_hash:
+                    snapshot_dir = model_dir / "snapshots" / commit_hash
+                    if snapshot_dir.exists():
+                        return str(snapshot_dir)
+            except Exception as e:
+                logger.debug(
+                    f"Failed to parse refs/main for {model_name} in {model_dir}: {e}"
+                )
+
+        snapshots_dir = model_dir / "snapshots"
+        if snapshots_dir.exists():
+            try:
+                for snapshot_dir in sorted(
+                    [p for p in snapshots_dir.iterdir() if p.is_dir()],
+                    key=lambda p: p.name,
+                    reverse=True,
+                ):
+                    if snapshot_dir.exists():
+                        return str(snapshot_dir)
+            except Exception as e:
+                logger.debug(
+                    f"Failed to inspect snapshots for {model_name} in {model_dir}: {e}"
+                )
+
+    return None
 
 
 # =============================================================================
@@ -59,16 +136,23 @@ def _is_model_cached_locally(model_name: str) -> bool:
     Returns:
         如果模型在本地缓存中存在返回 True，否则返回 False
     """
-    try:
-        # 检查 config.json 是否在缓存中 (这是模型的关键文件)
-        cached_path = try_to_load_from_cache(
-            repo_id=model_name,
-            filename="config.json",
-        )
-        return cached_path is not None and str(cached_path) != "_CACHED_NO_EXIST"
-    except Exception as e:
-        logger.debug(f"Error checking cache for {model_name}: {e}")
-        return False
+    if _find_model_snapshot_path(model_name):
+        return True
+
+    for cache_dir in _iter_model_cache_dirs():
+        try:
+            # 检查 config.json 是否在缓存中 (这是模型的关键文件)
+            cached_path = try_to_load_from_cache(
+                repo_id=model_name,
+                filename="config.json",
+                cache_dir=str(cache_dir),
+            )
+            if cached_path is not None and str(cached_path) != "_CACHED_NO_EXIST":
+                return True
+        except Exception as e:
+            logger.debug(f"Error checking cache for {model_name} in {cache_dir}: {e}")
+
+    return False
 
 
 def _ensure_model_available(model_name: str) -> str:
@@ -81,12 +165,19 @@ def _ensure_model_available(model_name: str) -> str:
     Returns:
         本地模型路径
     """
+    snapshot_path = _find_model_snapshot_path(model_name)
+    if snapshot_path is not None:
+        logger.info(f"Model '{model_name}' found in local snapshot: {snapshot_path}")
+        return snapshot_path
+
     if _is_model_cached_locally(model_name):
         logger.info(f"Model '{model_name}' found in local cache")
         return model_name
 
     # 本地没有模型，需要从网络下载
-    logger.info(f"Model '{model_name}' not found locally, downloading from HuggingFace Hub...")
+    logger.info(
+        f"Model '{model_name}' not found locally, downloading from HuggingFace Hub..."
+    )
 
     try:
         # 下载模型到本地缓存，使用线程超时
@@ -108,7 +199,9 @@ def _ensure_model_available(model_name: str) -> str:
         thread.join(timeout=300)  # 300秒超时
 
         if thread.is_alive():
-            raise TimeoutError(f"Download of model '{model_name}' timed out after 300 seconds")
+            raise TimeoutError(
+                f"Download of model '{model_name}' timed out after 300 seconds"
+            )
 
         if not result_queue.empty():
             local_path = result_queue.get()
@@ -123,7 +216,9 @@ def _ensure_model_available(model_name: str) -> str:
 
     except TimeoutError as e:
         logger.error(f"Download timed out: {e}")
-        raise RuntimeError(f"Cannot download model '{model_name}': download timed out") from e
+        raise RuntimeError(
+            f"Cannot download model '{model_name}': download timed out"
+        ) from e
     except Exception as e:
         logger.error(f"Failed to download model '{model_name}': {e}")
         raise RuntimeError(f"Cannot download model '{model_name}': {e}") from e
@@ -139,12 +234,27 @@ def _load_model_with_auto_download(model_name: str) -> SentenceTransformer:
     Returns:
         SentenceTransformer 模型实例
     """
-    # 首先确保模型可用（如果本地没有会自动下载）
-    _ensure_model_available(model_name)
+    # 模型可用后，优先使用本地快照路径加载
+    model_ref = _ensure_model_available(model_name)
+    logger.info(f"Loading model '{model_name}' from: {model_ref}")
+    return SentenceTransformer(model_ref)
 
-    # 模型已在本地，使用离线模式加载
-    logger.info(f"Loading model '{model_name}' from local cache...")
-    return SentenceTransformer(model_name)
+
+def _load_first_available_model(
+    model_names: list[str],
+) -> tuple[SentenceTransformer, str]:
+    """按顺序尝试加载模型，返回首个成功加载的模型及其名称。"""
+    errors: list[str] = []
+
+    for model_name in model_names:
+        try:
+            model = _load_model_with_auto_download(model_name)
+            return model, model_name
+        except Exception as e:
+            errors.append(f"{model_name}: {e}")
+
+    error_message = "; ".join(errors)
+    raise RuntimeError(f"Failed to load any model from candidates: {error_message}")
 
 
 # =============================================================================
@@ -195,10 +305,15 @@ class Embedder:
         logger.info("Loading embedding models...")
 
         try:
-            # 加载标题模型（如果本地没有会自动下载）
-            logger.info(f"Attempting to load title model: {TITLE_MODEL_NAME}")
-            self.title_model = _load_model_with_auto_download(TITLE_MODEL_NAME)
-            logger.info(f"Title model loaded: {TITLE_MODEL_NAME} ({TITLE_EMBEDDING_DIM}d)")
+            # 加载标题模型（支持本地缓存备选模型）
+            title_candidates = [TITLE_MODEL_NAME, *TITLE_MODEL_FALLBACKS]
+            logger.info(f"Attempting to load title models: {title_candidates}")
+            self.title_model, loaded_title_model = _load_first_available_model(
+                title_candidates
+            )
+            logger.info(
+                f"Title model loaded: {loaded_title_model} ({TITLE_EMBEDDING_DIM}d)"
+            )
         except Exception as e:
             logger.warning(f"Failed to load title model: {e}")
             logger.info("Creating dummy title model for testing")
@@ -209,7 +324,9 @@ class Embedder:
             # 加载正文模型（如果本地没有会自动下载）
             logger.info(f"Attempting to load content model: {CONTENT_MODEL_NAME}")
             self.content_model = _load_model_with_auto_download(CONTENT_MODEL_NAME)
-            logger.info(f"Content model loaded: {CONTENT_MODEL_NAME} ({CONTENT_EMBEDDING_DIM}d)")
+            logger.info(
+                f"Content model loaded: {CONTENT_MODEL_NAME} ({CONTENT_EMBEDDING_DIM}d)"
+            )
         except Exception as e:
             logger.warning(f"Failed to load content model: {e}")
             logger.info("Creating dummy content model for testing")
@@ -238,7 +355,10 @@ class Embedder:
             import random
 
             logger.warning("Using random vectors for titles (model not loaded)")
-            return [[random.uniform(-0.1, 0.1) for _ in range(TITLE_EMBEDDING_DIM)] for _ in texts]
+            return [
+                [random.uniform(-0.1, 0.1) for _ in range(TITLE_EMBEDDING_DIM)]
+                for _ in texts
+            ]
 
         try:
             # 标题不需要特殊前缀
@@ -254,7 +374,9 @@ class Embedder:
             # 返回零向量作为降级方案
             return [[0.0] * TITLE_EMBEDDING_DIM for _ in texts]
 
-    def embed_contents(self, texts: list[str], batch_size: int = 32) -> list[list[float]]:
+    def embed_contents(
+        self, texts: list[str], batch_size: int = 32
+    ) -> list[list[float]]:
         """
         向量化正文
 
@@ -274,7 +396,8 @@ class Embedder:
 
             logger.warning("Using random vectors for contents (model not loaded)")
             return [
-                [random.uniform(-0.1, 0.1) for _ in range(CONTENT_EMBEDDING_DIM)] for _ in texts
+                [random.uniform(-0.1, 0.1) for _ in range(CONTENT_EMBEDDING_DIM)]
+                for _ in texts
             ]
 
         try:
@@ -469,7 +592,9 @@ class QuantizedEmbedder(Embedder):
 
         if quantize_on_init:
             self.apply_quantization(quantization_type)
-            logger.info(f"QuantizedEmbedder initialized with {quantization_type} quantization")
+            logger.info(
+                f"QuantizedEmbedder initialized with {quantization_type} quantization"
+            )
 
     @property
     def quantization_type(self) -> str:
@@ -506,7 +631,9 @@ class QuantizedEmbedder(Embedder):
                 "estimated_saving_percentage": 75,
                 "title_model_size_kb": base_memory["title_model"] * 0.25 / 1024,
                 "content_model_size_kb": base_memory["content_model"] * 0.25 / 1024,
-                "total_saving_kb": (base_memory["title_model"] + base_memory["content_model"])
+                "total_saving_kb": (
+                    base_memory["title_model"] + base_memory["content_model"]
+                )
                 * 0.75
                 / 1024,
             }
@@ -517,7 +644,9 @@ class QuantizedEmbedder(Embedder):
                 "estimated_saving_percentage": 50,
                 "title_model_size_kb": base_memory["title_model"] * 0.5 / 1024,
                 "content_model_size_kb": base_memory["content_model"] * 0.5 / 1024,
-                "total_saving_kb": (base_memory["title_model"] + base_memory["content_model"])
+                "total_saving_kb": (
+                    base_memory["title_model"] + base_memory["content_model"]
+                )
                 * 0.5
                 / 1024,
             }
