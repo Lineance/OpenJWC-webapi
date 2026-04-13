@@ -1,12 +1,13 @@
 import sqlite3
+
 from app.core.config import NOTICE_DB, NOTICE_JSON
 from app.infrastructure.storage.sqlite.db_interface import logger
-from app.domain.sql_mixins.notice_mixin import NoticeMixin
-from app.domain.sql_mixins.validation_mixin import ValidationMixin
-from app.domain.sql_mixins.admin_mixin import AdminMixin
-from app.domain.sql_mixins.device_mixin import DeviceMixin
-from app.domain.sql_mixins.submission_mixin import SubmissionMixin
-from app.domain.sql_mixins.motto_mixin import MottoMixin
+from app.infrastructure.storage.sqlite.mixins.admin_mixin import AdminMixin
+from app.infrastructure.storage.sqlite.mixins.device_mixin import DeviceMixin
+from app.infrastructure.storage.sqlite.mixins.motto_mixin import MottoMixin
+from app.infrastructure.storage.sqlite.mixins.notice_mixin import NoticeMixin
+from app.infrastructure.storage.sqlite.mixins.submission_mixin import SubmissionMixin
+from app.infrastructure.storage.sqlite.mixins.validation_mixin import ValidationMixin
 
 
 class DBService(
@@ -116,4 +117,3 @@ if __name__ == "__main__":
     db._sync_settings()
     result = db.sync_from_json(NOTICE_JSON)
     logger.info(f"同步完成: {result}")
-
