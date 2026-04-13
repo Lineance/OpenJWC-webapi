@@ -18,7 +18,14 @@ from typing import TYPE_CHECKING, Any
 
 import lancedb
 
-from .schema import ARTICLES_TABLE_NAME, ARTICLE_ORDER_TABLE_NAME, ArticleFields, IndexConfig, get_article_schema, get_article_order_schema
+from .schema import (
+    ARTICLE_ORDER_TABLE_NAME,
+    ARTICLES_TABLE_NAME,
+    ArticleFields,
+    IndexConfig,
+    get_article_order_schema,
+    get_article_schema,
+)
 
 if TYPE_CHECKING:
     from lancedb.db import DBConnection
@@ -32,6 +39,28 @@ logger = logging.getLogger(__name__)
 
 # 默认数据库路径 (相对于项目根目录)
 DEFAULT_DB_PATH = "data/lancedb"
+
+
+def _find_project_root(start: Path) -> Path:
+    """从当前文件向上查找项目根目录（以 pyproject.toml 为锚点）。"""
+    current = start.resolve()
+    for candidate in [current, *current.parents]:
+        if (candidate / "pyproject.toml").exists():
+            return candidate
+
+    # 兜底: 保持稳定的绝对路径行为，避免依赖当前工作目录。
+    return current.parents[4] if len(current.parents) > 4 else current.parent
+
+
+def _resolve_db_path(db_path: str | None) -> str:
+    """解析 LanceDB 路径，保证相对路径统一锚定到项目根目录。"""
+    raw_path = db_path or os.getenv("LANCE_DB_PATH") or DEFAULT_DB_PATH
+    expanded_path = os.path.expanduser(raw_path)
+    if os.path.isabs(expanded_path):
+        return expanded_path
+
+    project_root = _find_project_root(Path(__file__).resolve().parent)
+    return str((project_root / expanded_path).resolve())
 
 
 # =============================================================================
@@ -90,13 +119,7 @@ class LanceDBConnection:
         if getattr(self, "_initialized", False):
             return
 
-        resolved_db_path = db_path or os.getenv("LANCE_DB_PATH") or DEFAULT_DB_PATH
-        # 确保路径是绝对的
-        if not os.path.isabs(resolved_db_path):
-            # 基于项目根目录解析相对路径
-            project_root = Path(__file__).resolve().parents[2]  # connection.py -> database -> backend -> 项目根
-            resolved_db_path = str(project_root / resolved_db_path)
-        self._db_path = resolved_db_path
+        self._db_path = _resolve_db_path(db_path)
         self._ensure_db_directory()
 
         logger.info(f"Connecting to LanceDB at: {self._db_path}")
@@ -159,7 +182,9 @@ class LanceDBConnection:
 
         if ARTICLES_TABLE_NAME in table_names:
             if exist_ok:
-                logger.info(f"Table '{ARTICLES_TABLE_NAME}' already exists, returning existing")
+                logger.info(
+                    f"Table '{ARTICLES_TABLE_NAME}' already exists, returning existing"
+                )
                 return self.get_table(ARTICLES_TABLE_NAME)
             raise ValueError(f"Table '{ARTICLES_TABLE_NAME}' already exists")
 
@@ -203,7 +228,9 @@ class LanceDBConnection:
         logger.info(f"Table '{ARTICLE_ORDER_TABLE_NAME}' created successfully")
         return table
 
-    def get_ordered_news_ids(self, offset: int, limit: int, category: str | None = None) -> tuple[list[str], int]:
+    def get_ordered_news_ids(
+        self, offset: int, limit: int, category: str | None = None
+    ) -> tuple[list[str], int]:
         """
         从 article_order 表获取按时间排序的新闻 ID 列表
 
@@ -233,11 +260,13 @@ class LanceDBConnection:
         else:
             # 分类筛选：需要过滤 + 排序（因为分类内序号 ordinal_by_category 也是插入时排序的）
             # 由于 order_by 不可用，只能在 Python 中排序
-            all_results = order_table.search().where(f"category = '{category}'").to_list()
+            all_results = (
+                order_table.search().where(f"category = '{category}'").to_list()
+            )
             total = len(all_results)
             # 按 ordinal_by_category 排序（数据已按此顺序插入）
             all_results.sort(key=lambda r: r.get("ordinal_by_category", 0))
-            results = all_results[offset:offset + limit]
+            results = all_results[offset : offset + limit]
 
         news_ids = [r.get("news_id") for r in results if r.get("news_id")]
         return news_ids, total
@@ -256,10 +285,16 @@ class LanceDBConnection:
 
         # 获取所有文章 - 只选择需要的列
         try:
-            all_articles = articles_table.search().select(["news_id", "publish_date", "source_site"]).to_list()
+            all_articles = (
+                articles_table.search()
+                .select(["news_id", "publish_date", "source_site"])
+                .to_list()
+            )
         except Exception as e:
             logger.warning(f"search with select failed: {e}, falling back to pandas")
-            all_articles = articles_table.to_pandas()[["news_id", "publish_date", "source_site"]].to_dict("records")
+            all_articles = articles_table.to_pandas()[
+                ["news_id", "publish_date", "source_site"]
+            ].to_dict("records")
 
         # 按 publish_date 降序排序
         def sort_key(item):
@@ -284,20 +319,24 @@ class LanceDBConnection:
                 category_counters[category] = 0
             category_counters[category] += 1
 
-            order_data.append({
-                "ordinal": i,
-                "ordinal_by_category": category_counters[category],
-                "news_id": article.get("news_id", ""),
-                "publish_date": article.get("publish_date"),
-                "category": category,
-            })
+            order_data.append(
+                {
+                    "ordinal": i,
+                    "ordinal_by_category": category_counters[category],
+                    "news_id": article.get("news_id", ""),
+                    "publish_date": article.get("publish_date"),
+                    "category": category,
+                }
+            )
 
         # 清空并重新写入
         try:
             self._db.drop_table(ARTICLE_ORDER_TABLE_NAME)
             with self._table_lock:
                 self._tables.pop(ARTICLE_ORDER_TABLE_NAME, None)
-            order_table = self._db.create_table(ARTICLE_ORDER_TABLE_NAME, schema=get_article_order_schema())
+            order_table = self._db.create_table(
+                ARTICLE_ORDER_TABLE_NAME, schema=get_article_order_schema()
+            )
             with self._table_lock:
                 self._tables[ARTICLE_ORDER_TABLE_NAME] = order_table
         except Exception as e:
@@ -362,7 +401,9 @@ class LanceDBConnection:
                     )
                     logger.info(f"FTS index created on '{field}'")
                 except Exception as e:
-                    logger.warning(f"Failed to create FTS index on field '{field}': {e}")
+                    logger.warning(
+                        f"Failed to create FTS index on field '{field}': {e}"
+                    )
                     # 继续为其他字段创建索引
         except Exception as e:
             logger.warning(f"Failed to create FTS indices: {e}")
@@ -459,7 +500,9 @@ def get_articles_table() -> "Table":
     return get_connection().get_table(ARTICLES_TABLE_NAME)
 
 
-def init_database(db_path: str | None = None, create_indices: bool = False) -> LanceDBConnection:
+def init_database(
+    db_path: str | None = None, create_indices: bool = False
+) -> LanceDBConnection:
     """
     初始化数据库 (创建表和索引)
 
