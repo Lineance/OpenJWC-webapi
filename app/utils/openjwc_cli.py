@@ -5,7 +5,7 @@ from app.utils.logging_manager import setup_logger
 from rich import print
 import cmd2
 import asyncio
-from app.crawler_wrapper import run_crawler_job
+from app.infrastructure.crawler.rust.crawler_wrapper import run_crawler_job
 from datetime import date
 
 logger = setup_logger("cli_logs")

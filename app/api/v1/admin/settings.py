@@ -8,7 +8,7 @@ from typing import Dict, Any, List
 from app.api.dependencies import verify_admin_token
 from app.core.config import ALLOWED_SETTINGS
 from datetime import date
-from app.crawler_wrapper import run_crawler_job
+from app.infrastructure.crawler.rust.crawler_wrapper import run_crawler_job
 from app.services.ai_service import ai_service
 from app.services.vector_db_service import vector_db
 from functools import wraps
