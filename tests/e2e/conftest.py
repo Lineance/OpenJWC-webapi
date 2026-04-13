@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import AsyncIterator
 
 import pytest
+import pytest_asyncio
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
@@ -47,6 +48,48 @@ if "sentence_transformers" not in sys.modules:
 
     st_stub.SentenceTransformer = _SentenceTransformerStub
     sys.modules["sentence_transformers"] = st_stub
+
+if "app.infrastructure.ingestion.pipeline" not in sys.modules:
+    pipeline_stub = types.ModuleType("app.infrastructure.ingestion.pipeline")
+
+    class _DummyProcessResult:
+        def __init__(self, status: str = "success", message: str = "ok") -> None:
+            self.status = status
+            self.message = message
+
+    class _DummyBatchResult:
+        def __init__(self) -> None:
+            self.total = 0
+            self.success = 0
+            self.duplicate = 0
+            self.invalid = 0
+            self.error = 0
+
+    ProcessResult = _DummyProcessResult
+    PipelineResult = _DummyBatchResult
+
+    class IngestionPipeline:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        def process_one(self, doc):
+            return _DummyProcessResult()
+
+        def process_batch(self, docs):
+            return _DummyBatchResult()
+
+    def create_pipeline(*args, **kwargs):
+        return IngestionPipeline(*args, **kwargs)
+
+    def ingest_documents(docs, *args, **kwargs):
+        return _DummyBatchResult()
+
+    pipeline_stub.IngestionPipeline = IngestionPipeline
+    pipeline_stub.ProcessResult = ProcessResult
+    pipeline_stub.PipelineResult = PipelineResult
+    pipeline_stub.create_pipeline = create_pipeline
+    pipeline_stub.ingest_documents = ingest_documents
+    sys.modules["app.infrastructure.ingestion.pipeline"] = pipeline_stub
 
 from app.api.v1.admin import apikeys as admin_apikeys
 from app.api.v1.admin import auth as admin_auth
@@ -90,7 +133,7 @@ def test_app(isolated_db: None) -> FastAPI:
     return app
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def async_client(test_app: FastAPI) -> AsyncIterator[AsyncClient]:
     transport = ASGITransport(app=test_app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:

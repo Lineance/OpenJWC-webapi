@@ -12,9 +12,17 @@ from app.models.schemas import ResponseModel, SemanticSearchRequest
 from app.utils.logging_manager import setup_logger
 
 logger = setup_logger("search_logs")
-retrieval_engine = RetrievalEngine(
-    db_path=str(DATA_DIR / "lancedb"), table_name="articles"
-)
+retrieval_engine: RetrievalEngine | None = None
+
+
+def _get_retrieval_engine() -> RetrievalEngine:
+    global retrieval_engine
+    if retrieval_engine is None:
+        retrieval_engine = RetrievalEngine(
+            db_path=str(DATA_DIR / "lancedb"), table_name="articles"
+        )
+    return retrieval_engine
+
 
 router = APIRouter(prefix="/notices/search", route_class=LoggingRoute)
 
@@ -47,7 +55,7 @@ async def semantic_search(
 
     # 执行语义搜索
     search_payload = await to_thread(
-        retrieval_engine.semantic_search,
+        _get_retrieval_engine().semantic_search,
         request.query,
         "content",
         min_similarity,
