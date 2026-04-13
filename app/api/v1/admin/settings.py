@@ -8,7 +8,7 @@ from typing import Dict, Any, List
 from app.api.dependencies import verify_admin_token
 from app.core.config import ALLOWED_SETTINGS
 from datetime import date
-from app.infrastructure.crawler.rust.crawler_wrapper import run_crawler_job
+from app.infrastructure.crawler.rust_crawler_wrapper import run_crawler_job
 from app.application.chat import ai_service
 from app.infrastructure.storage.lancedb.connection import get_connection
 from functools import wraps

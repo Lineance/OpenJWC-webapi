@@ -15,8 +15,8 @@ from typing import Any
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from app.infrastructure.crawler.python.crawler.article_url_crawler import ArticleUrlCrawler
-from app.infrastructure.crawler.python.crawler.list_incremental_crawler import ListIncrementalCrawler
+from app.infrastructure.crawler.python_crawler.article_url_crawler import ArticleUrlCrawler
+from app.infrastructure.crawler.python_crawler.list_incremental_crawler import ListIncrementalCrawler
 from app.infrastructure.storage.lancedb import init_database
 from app.infrastructure.ingestion.adapters.crawler import CrawlerAdapter
 from app.infrastructure.ingestion.pipeline import IngestionPipeline

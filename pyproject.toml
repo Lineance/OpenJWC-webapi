@@ -6,12 +6,14 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
   "bcrypt>=5.0.0",
+  "beautifulsoup4>=4.13.0",
   "cmd2>=3.4.0",
   "fastapi>=0.135.1",
   "gnureadline>=8.3.3",
   "httpx[socks]>=0.28.1",
   "lancedb>=0.29.0",
   "litellm>=1.80.0",
+  "markdown>=3.7",
   "openai>=2.26.0",
   "passlib[bcrypt]>=1.7.4",
   "psutil>=7.2.2",
@@ -21,4 +23,10 @@ dependencies = [
   "tenacity>=9.1.4",
   "uvicorn>=0.41.0",
   "zhipuai>=2.1.5.20250825",
+]
+
+[dependency-groups]
+dev = [
+  "pytest>=8.3.0",
+  "pytest-asyncio>=0.24.0",
 ]

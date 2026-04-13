@@ -70,7 +70,7 @@ class DBService(
         CREATE TABLE IF NOT EXISTS mottos (
             date_str TEXT PRIMARY KEY,
             motto_content TEXT,
-            motto_author TEXT
+            motto_author TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
         """

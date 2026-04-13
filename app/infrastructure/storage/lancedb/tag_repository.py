@@ -10,6 +10,8 @@ Responsibilities:
     - 标签加载和初始化
 """
 
+from __future__ import annotations
+
 import logging
 from datetime import datetime
 from typing import Any
@@ -163,7 +165,10 @@ class TagRepository:
         """
         try:
             results = (
-                self._table.search().where(f"{TagFields.TAG_ID} = '{tag_id}'").limit(1).to_list()
+                self._table.search()
+                .where(f"{TagFields.TAG_ID} = '{tag_id}'")
+                .limit(1)
+                .to_list()
             )
             return TagRecord.from_dict(results[0]) if results else None
         except Exception as e:
@@ -182,7 +187,12 @@ class TagRepository:
         """
         try:
             # 使用全文搜索或精确匹配
-            results = self._table.search().where(f"{TagFields.NAME} = '{name}'").limit(1).to_list()
+            results = (
+                self._table.search()
+                .where(f"{TagFields.NAME} = '{name}'")
+                .limit(1)
+                .to_list()
+            )
             return TagRecord.from_dict(results[0]) if results else None
         except Exception as e:
             logger.error(f"Failed to get tag by name '{name}': {e}")
@@ -206,9 +216,9 @@ class TagRepository:
             update_data[TagFields.UPDATED_AT] = datetime.now()
 
             # 使用 merge_insert 进行更新
-            self._table.merge_insert(TagFields.TAG_ID).when_matched_update_all().execute(
-                [update_data]
-            )
+            self._table.merge_insert(
+                TagFields.TAG_ID
+            ).when_matched_update_all().execute([update_data])
             logger.debug(f"Updated tag: {tag_id}")
             return True
         except Exception as e:
@@ -305,7 +315,9 @@ class TagRepository:
             TagRecord 列表
         """
         try:
-            results = self._table.search(query=query, query_type="fts").limit(limit).to_list()
+            results = (
+                self._table.search(query=query, query_type="fts").limit(limit).to_list()
+            )
             return [TagRecord.from_dict(data) for data in results]
         except Exception as e:
             logger.error(f"Failed to search tags by name '{query}': {e}")
@@ -400,8 +412,14 @@ class TagRepository:
             (tag_id, embedding) 元组列表
         """
         try:
-            results = self._table.search().select([TagFields.TAG_ID, TagFields.EMBEDDING]).to_list()
-            return [(data[TagFields.TAG_ID], data[TagFields.EMBEDDING]) for data in results]
+            results = (
+                self._table.search()
+                .select([TagFields.TAG_ID, TagFields.EMBEDDING])
+                .to_list()
+            )
+            return [
+                (data[TagFields.TAG_ID], data[TagFields.EMBEDDING]) for data in results
+            ]
         except Exception as e:
             logger.error(f"Failed to get all embeddings: {e}")
             return []
@@ -432,9 +450,9 @@ class TagRepository:
                 update_data.append(data)
 
             # 执行批量更新
-            self._table.merge_insert(TagFields.TAG_ID).when_matched_update_all().execute(
-                update_data
-            )
+            self._table.merge_insert(
+                TagFields.TAG_ID
+            ).when_matched_update_all().execute(update_data)
             logger.info(f"Bulk updated {len(tag_records)} tags")
             return len(tag_records)
         except Exception as e:
@@ -485,7 +503,9 @@ class TagRepository:
                     logger.error(f"Failed to create vector index: {e}")
                     # 向量索引失败不影响全文索引创建
             else:
-                logger.info(f"Skipping vector index creation: row_count={row_count} < 256")
+                logger.info(
+                    f"Skipping vector index creation: row_count={row_count} < 256"
+                )
 
             # 2. 创建全文索引（为每个字段单独创建）
             for field in TagIndexConfig.FTS_FIELDS:
