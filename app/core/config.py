@@ -13,6 +13,7 @@ OUTPUT_JSON = DATA_DIR / "output.json"
 LOGS_DIR = ROOT_DIR / "logs"
 MAX_DAY_DIFF = 300
 ACCESS_TOKEN_EXPIRE_MINUTES = 5
+CLIENT_TOKEN_EXPIRE_DAYS = 30
 ALLOWED_SETTINGS = {
     "deepseek_api_key": "this_is_your_dpsk_key",
     "zhipu_api_key": "this_is_your_glm_key",

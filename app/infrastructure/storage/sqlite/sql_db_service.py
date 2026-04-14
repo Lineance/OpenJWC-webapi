@@ -6,6 +6,7 @@ from app.infrastructure.storage.sqlite.mixins.admin_mixin import AdminMixin
 from app.infrastructure.storage.sqlite.mixins.device_mixin import DeviceMixin
 from app.infrastructure.storage.sqlite.mixins.motto_mixin import MottoMixin
 from app.infrastructure.storage.sqlite.mixins.validation_mixin import ValidationMixin
+from app.infrastructure.storage.sqlite.mixins.user_mixin import UserMixin
 
 SQLITE_USER_STATE_TABLES = {
     "api_keys",
@@ -13,10 +14,12 @@ SQLITE_USER_STATE_TABLES = {
     "system_settings",
     "mottos",
     "submissions",
+    "users",
+    "user_devices",
 }
 
 
-class DBService(ValidationMixin, AdminMixin, DeviceMixin, MottoMixin):
+class DBService(ValidationMixin, AdminMixin, DeviceMixin, MottoMixin, UserMixin):
     def __init__(self, db_path=SQLITE_DB_PATH):
         self.db_path = db_path
         self.init_db()
@@ -68,6 +71,26 @@ class DBService(ValidationMixin, AdminMixin, DeviceMixin, MottoMixin):
         create_index_sql = (
             "CREATE INDEX IF NOT EXISTS idx_key_string ON api_keys(key_string);"
         )
+        create_users_sql = """
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+        create_user_devices_sql = """
+        CREATE TABLE IF NOT EXISTS user_devices (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            device_uuid TEXT NOT NULL,
+            device_name TEXT NOT NULL,
+            last_login TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id),
+            UNIQUE(user_id, device_uuid)
+        )
+        """
         create_submissions_sql = """
         CREATE TABLE IF NOT EXISTS submissions (
             id TEXT PRIMARY KEY,
@@ -93,6 +116,8 @@ class DBService(ValidationMixin, AdminMixin, DeviceMixin, MottoMixin):
             cursor.execute(create_system_sql)
             cursor.execute(create_motto_sql)
             cursor.execute(create_submissions_sql)
+            cursor.execute(create_users_sql)
+            cursor.execute(create_user_devices_sql)
             conn.commit()
             logger.info("sql数据库初始化完成")
 

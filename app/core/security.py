@@ -6,7 +6,7 @@ import bcrypt
 import jwt
 from passlib.context import CryptContext
 
-from app.core.config import ACCESS_TOKEN_EXPIRE_MINUTES
+from app.core.config import ACCESS_TOKEN_EXPIRE_MINUTES, CLIENT_TOKEN_EXPIRE_DAYS
 
 SECRET_KEY = os.getenv(
     "OPENJWC_SECRET_KEY",
@@ -34,11 +34,20 @@ def get_password_hash(password: str) -> str:
 
 
 def create_access_token(data: dict) -> str:
-    """生成 JWT 认证token"""
+    """生成 JWT 认证token（管理员用，短期）"""
     to_encode = data.copy()
     # 设置过期时间
     expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
     # 用 SECRET_KEY 进行签名加密
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+
+def create_client_token(data: dict) -> str:
+    """生成 JWT 认证token（客户端用户用，长期）"""
+    to_encode = data.copy()
+    expire = datetime.now(timezone.utc) + timedelta(days=CLIENT_TOKEN_EXPIRE_DAYS)
+    to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt

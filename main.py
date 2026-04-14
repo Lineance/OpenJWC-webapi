@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from app.api.v1.api_router import client_router, admin_router
+from app.api.v2.api_router import v2_client_router
 from app.utils.openjwc_cli import SQLCLI
 from app.utils.logging_manager import setup_logger
 from contextlib import asynccontextmanager
@@ -29,6 +30,7 @@ logger = setup_logger("main_logs")
 
 app.include_router(client_router, prefix="/api/v1", tags=["客户端"])
 app.include_router(admin_router, prefix="/api/v1", tags=["管理员", "控制面板"])
+app.include_router(v2_client_router, prefix="/api/v2", tags=["客户端 v2"])
 
 
 @app.get("/")
