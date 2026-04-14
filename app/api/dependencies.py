@@ -132,3 +132,46 @@ async def verify_api_key_and_device(
     logger.debug(f"鉴权通过 - Token: {token[:8]}... 设备: {x_device_id}")
     return token, x_device_id
 
+
+# ==================== v2 客户端账密鉴权 ====================
+
+async def verify_client_token(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> dict:
+    """
+    v2 客户端接口的全局鉴权依赖。
+    从 Authorization Header 中提取 JWT Token，解码并返回用户信息。
+    Token 无效或过期时抛出 401。
+    """
+    if not credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="未提供认证信息",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    token = credentials.credentials
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        user_id: int = payload.get("user_id")
+        if username is None or user_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="无效的Token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        return {"username": username, "user_id": user_id}
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token已过期，请重新登录",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except jwt.PyJWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="无效的Token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
