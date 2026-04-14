@@ -82,7 +82,8 @@ class TagRepository:
         Returns:
             LanceDB Table 对象
         """
-        table_names = self._conn.db.table_names()
+        tables_obj = self._conn.db.list_tables()
+        table_names = getattr(tables_obj, "tables", tables_obj)
 
         if TAGS_TABLE_NAME in table_names:
             logger.info(f"Opening existing table: {TAGS_TABLE_NAME}")

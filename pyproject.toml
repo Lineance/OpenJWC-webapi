@@ -34,3 +34,11 @@ dev = [
 
 [tool.setuptools]
 packages = ["app"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+addopts = "-m \"not slow\""
+markers = [
+  "slow: long-running or heavy integration tests, excluded by default",
+  "real_web: tests requiring real network access",
+]

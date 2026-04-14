@@ -15,6 +15,7 @@ def reset_embedder_singleton():
     Embedder.reset()
 
 
+@pytest.mark.slow
 class TestEmbedderRealModel:
     """使用真实嵌入模型的集成测试"""
 

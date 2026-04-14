@@ -33,6 +33,14 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
+def _table_names(db: "DBConnection") -> list[str]:
+    """Return table names across LanceDB versions."""
+    tables_obj = db.list_tables()
+    names = getattr(tables_obj, "tables", tables_obj)
+    return list(names)
+
+
 # =============================================================================
 # 默认配置
 # =============================================================================
@@ -178,7 +186,7 @@ class LanceDBConnection:
         Returns:
             创建或获取的表对象
         """
-        table_names = self._db.table_names()
+        table_names = _table_names(self._db)
 
         if ARTICLES_TABLE_NAME in table_names:
             if exist_ok:
@@ -210,7 +218,7 @@ class LanceDBConnection:
         Returns:
             创建或获取的表对象
         """
-        table_names = self._db.table_names()
+        table_names = _table_names(self._db)
 
         if ARTICLE_ORDER_TABLE_NAME in table_names:
             if exist_ok:
@@ -410,7 +418,7 @@ class LanceDBConnection:
 
     def table_exists(self, name: str = ARTICLES_TABLE_NAME) -> bool:
         """检查表是否存在"""
-        return name in self._db.table_names()
+        return name in _table_names(self._db)
 
     def drop_table(self, name: str) -> None:
         """
@@ -435,7 +443,7 @@ class LanceDBConnection:
             包含健康状态的字典
         """
         try:
-            tables = self._db.table_names()
+            tables = _table_names(self._db)
             articles_count = 0
 
             if ARTICLES_TABLE_NAME in tables:

@@ -1,0 +1,1 @@
+"""OpenJWC application package."""

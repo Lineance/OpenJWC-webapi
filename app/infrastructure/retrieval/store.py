@@ -15,11 +15,11 @@ import re
 from typing import Any, Literal, cast
 
 import pyarrow as pa
+from lancedb.table import Table
 
 # 导入数据层组件
 from app.infrastructure.storage.lancedb import ArticleRepository, get_article_repository
 from app.infrastructure.storage.lancedb.schema import ArticleFields
-from lancedb.table import Table
 
 from .schema.article import Article, ArticleQuery
 from .utils.embedding import RetrievalEmbedder, get_retrieval_embedder
@@ -76,7 +76,9 @@ class LanceStore:
             import lancedb
 
             db = lancedb.connect(db_path)
-            if table_name in db.table_names():
+            tables_obj = db.list_tables()
+            table_names = getattr(tables_obj, "tables", tables_obj)
+            if table_name in table_names:
                 self._table = db.open_table(table_name)
                 logger.info(f"Opened existing table: {table_name}")
             else:
@@ -177,14 +179,20 @@ class LanceStore:
 
             if adaptive:
                 if data_count < min_data_for_training:
-                    logger.info(f"数据量不足({data_count} < {min_data_for_training})，跳过索引创建")
-                    logger.info("    注意：少量数据时IVF-PQ索引需要训练，建议积累数据后重试")
+                    logger.info(
+                        f"数据量不足({data_count} < {min_data_for_training})，跳过索引创建"
+                    )
+                    logger.info(
+                        "    注意：少量数据时IVF-PQ索引需要训练，建议积累数据后重试"
+                    )
                     return
                 else:
                     # 动态计算分区数：sqrt(n) 但不超过max_partitions
                     import math
 
-                    calculated_partitions = int(min(max_partitions, math.sqrt(data_count) * 2))
+                    calculated_partitions = int(
+                        min(max_partitions, math.sqrt(data_count) * 2)
+                    )
                     calculated_partitions = max(min_partitions, calculated_partitions)
 
                     # 确保分区数不超过数据量
@@ -214,7 +222,10 @@ class LanceStore:
 
         except Exception as e:
             error_msg = str(e)
-            if "KMeans cannot train" in error_msg or "Not enough rows to train PQ" in error_msg:
+            if (
+                "KMeans cannot train" in error_msg
+                or "Not enough rows to train PQ" in error_msg
+            ):
                 logger.warning(f"向量索引训练失败（数据量不足）: {error_msg}")
                 logger.warning("建议：积累更多数据（至少256条）或使用暴力检索")
                 if enable_brute_force_fallback:
@@ -274,7 +285,8 @@ class LanceStore:
                 {
                     "name": idx.name,
                     "type": idx.index_type,
-                    "column": getattr(idx, "column", None) or getattr(idx, "columns", None),
+                    "column": getattr(idx, "column", None)
+                    or getattr(idx, "columns", None),
                 }
                 for idx in indices
             ]
@@ -319,10 +331,14 @@ class LanceStore:
             搜索结果列表
         """
         try:
-            results = self.table.search(
-                query=query_vector,
-                vector_column_name=vector_field,
-            ).limit(limit).offset(offset)
+            results = (
+                self.table.search(
+                    query=query_vector,
+                    vector_column_name=vector_field,
+                )
+                .limit(limit)
+                .offset(offset)
+            )
 
             if where:
                 results = results.where(where)
@@ -360,10 +376,14 @@ class LanceStore:
                 fields = Article.get_searchable_fields()
 
             # 使用 LanceDB 的全文搜索
-            results = self.table.search(
-                query=query,
-                query_type="fts",
-            ).limit(limit).offset(offset)
+            results = (
+                self.table.search(
+                    query=query,
+                    query_type="fts",
+                )
+                .limit(limit)
+                .offset(offset)
+            )
 
             if where:
                 results = results.where(where)
@@ -381,7 +401,9 @@ class LanceStore:
                 )
                 # 降级方案：使用简单的文本搜索
                 # 此处 fields 已在上面进行了 None 检查并赋予默认值，但为了类型安全，再次确保
-                search_fields = fields if fields is not None else Article.get_searchable_fields()
+                search_fields = (
+                    fields if fields is not None else Article.get_searchable_fields()
+                )
                 return self._simple_text_search(query, search_fields, limit, where)
             else:
                 logger.error(f"Fulltext search failed: {e}")
@@ -452,7 +474,9 @@ class LanceStore:
             logger.error(f"Simple text search failed: {e}")
             return []
 
-    def _apply_simple_where(self, docs: list[dict[str, Any]], where: str) -> list[dict[str, Any]]:
+    def _apply_simple_where(
+        self, docs: list[dict[str, Any]], where: str
+    ) -> list[dict[str, Any]]:
         """
         应用简单的 where 条件
 
@@ -467,7 +491,9 @@ class LanceStore:
             return docs
 
         try:
-            filtered = [doc for doc in docs if self._evaluate_simple_condition(doc, where)]
+            filtered = [
+                doc for doc in docs if self._evaluate_simple_condition(doc, where)
+            ]
             return filtered
         except Exception as e:
             logger.warning(f"Failed to apply where condition: {e}")
@@ -631,7 +657,12 @@ class LanceStore:
             except Exception as e:
                 logger.warning(f"Empty search order_by failed: {e}")
                 # Fallback: 返回前 limit 条
-                return self.table.search().limit(query_obj.limit).offset(query_obj.offset).to_list()
+                return (
+                    self.table.search()
+                    .limit(query_obj.limit)
+                    .offset(query_obj.offset)
+                    .to_list()
+                )
 
         # 融合结果
         return self._fuse_results(
@@ -735,7 +766,9 @@ class LanceStore:
                 rank_score = 1.0 / (i + 1)
                 # 同时考虑位置衰减：前10个结果占主导
                 position_boost = max(0.5, 1.0 - (i / 20))
-                scores[doc_id] = scores.get(doc_id, 0) + rank_score * vector_weight * position_boost
+                scores[doc_id] = (
+                    scores.get(doc_id, 0) + rank_score * vector_weight * position_boost
+                )
 
         # 处理文本结果
         for i, doc in enumerate(text_results):
@@ -744,7 +777,9 @@ class LanceStore:
                 rank_score = 1.0 / (i + 1)
                 # 文本分数权重衰减：全文搜索作为辅助
                 text_weight_adjusted = text_weight * max(0.3, 1.0 - (i / 15))
-                scores[doc_id] = scores.get(doc_id, 0) + rank_score * text_weight_adjusted
+                scores[doc_id] = (
+                    scores.get(doc_id, 0) + rank_score * text_weight_adjusted
+                )
 
         # 合并结果
         all_docs: dict[str, dict[str, Any]] = {}
@@ -809,9 +844,14 @@ class LanceStore:
                 logger.warning(f"Failed to convert document: {e}")
                 continue
 
-        # 批量插入（使用 merge_insert 去重）
+        # 批量 upsert：已存在则更新，不存在则插入
         try:
-            self.table.merge_insert("news_id").when_matched_update_all().execute(articles)
+            (
+                self.table.merge_insert("news_id")
+                .when_matched_update_all()
+                .when_not_matched_insert_all()
+                .execute(articles)
+            )
             logger.info(f"Added/Updated {len(articles)} documents")
             return len(articles)
         except Exception as e:
@@ -837,7 +877,12 @@ class LanceStore:
             return 0
 
         try:
-            self.table.merge_insert(merge_key).when_matched_update_all().execute(updates)
+            (
+                self.table.merge_insert(merge_key)
+                .when_matched_update_all()
+                .when_not_matched_insert_all()
+                .execute(updates)
+            )
             logger.info(f"Updated {len(updates)} documents")
             return len(updates)
         except Exception as e:

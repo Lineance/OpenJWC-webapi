@@ -3,8 +3,9 @@ from __future__ import annotations
 import argparse
 from typing import Any
 
-import list_to_articles_e2e as e2e
 import pytest
+
+from app.infrastructure.crawler.python_crawler import list_to_articles_e2e as e2e
 
 
 class _FakeListIncrementalCrawler:
@@ -73,7 +74,9 @@ class _FakeArticleCrawler:
         assert override_config == {"crawler": {"word_count_threshold": 20}}
         return target, _RunConfig(), None
 
-    async def crawl_articles(self, urls: list[str], run_config: Any) -> list[dict[str, Any]]:
+    async def crawl_articles(
+        self, urls: list[str], run_config: Any
+    ) -> list[dict[str, Any]]:
         return [
             {"success": True, "url": urls[0]},
             {"success": True, "url": urls[1]},

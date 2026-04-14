@@ -4,10 +4,12 @@ import json
 import textwrap
 from pathlib import Path
 
-import list_incremental_crawler as lic
 import pytest
+from app.infrastructure.crawler.python_crawler import list_incremental_crawler as lic
+from app.infrastructure.crawler.python_crawler.list_incremental_crawler import (
+    ListIncrementalCrawler,
+)
 from tests.crawler.conftest import _AsyncWebCrawler, _FakeResult
-from list_incremental_crawler import ListIncrementalCrawler
 
 
 @pytest.fixture

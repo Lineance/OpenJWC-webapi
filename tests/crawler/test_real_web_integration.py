@@ -4,8 +4,11 @@ from typing import TYPE_CHECKING
 
 import httpx
 import pytest
-from article_url_crawler import ArticleUrlCrawler
 from crawl4ai import CacheMode
+
+from app.infrastructure.crawler.python_crawler.article_url_crawler import (
+    ArticleUrlCrawler,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
