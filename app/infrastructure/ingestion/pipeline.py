@@ -404,6 +404,13 @@ class IngestionPipeline:
                 content_markdown, is_markdown=True
             )
 
+        # 附件字段透传（来自 crawler adapter/submission adapter）
+        attachments = data.get(ArticleFields.ATTACHMENTS)
+        if isinstance(attachments, list):
+            result[ArticleFields.ATTACHMENTS] = [
+                str(item) for item in attachments if item
+            ]
+
         # 版本控制
         result[ArticleFields.CRAWL_VERSION] = data.get("crawl_version", 1)
         result[ArticleFields.LAST_UPDATED] = datetime.now()
