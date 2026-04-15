@@ -28,9 +28,24 @@ logger = logging.getLogger(__name__)
 def _safe_publish_date_str(value: Any) -> str:
     if value is None:
         return ""
+
+    # Keep external API contract stable: notices date should be YYYY-mm-dd.
+    if isinstance(value, datetime):
+        return value.date().isoformat()
+
     if hasattr(value, "isoformat"):
-        return str(value.isoformat())
-    return str(value)
+        text = str(value.isoformat())
+    else:
+        text = str(value)
+
+    if len(text) >= 10 and text[4] == "-" and text[7] == "-":
+        return text[:10]
+
+    try:
+        normalized = text.replace("Z", "+00:00")
+        return datetime.fromisoformat(normalized).date().isoformat()
+    except ValueError:
+        return text
 
 
 def _extract_metadata(record: dict[str, Any]) -> dict[str, Any]:

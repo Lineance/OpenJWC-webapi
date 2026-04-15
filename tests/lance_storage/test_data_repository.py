@@ -4,9 +4,13 @@
 测试 ArticleRepository 的 CRUD 操作。
 """
 
+from datetime import datetime, timezone
 from typing import Any
 
-from app.infrastructure.storage.lancedb.repository import ArticleRepository
+from app.infrastructure.storage.lancedb.repository import (
+    ArticleRepository,
+    _safe_publish_date_str,
+)
 
 
 class TestArticleRepository:
@@ -124,3 +128,17 @@ class TestArticleRepository:
         """测试获取最旧记录"""
         results = article_repository.get_oldest(limit=5)
         assert isinstance(results, list)
+
+
+class TestNoticeDateFormat:
+    """Notices 日期格式回归测试"""
+
+    def test_safe_publish_date_str_datetime(self) -> None:
+        dt = datetime(2026, 4, 15, 8, 30, 0, tzinfo=timezone.utc)
+        assert _safe_publish_date_str(dt) == "2026-04-15"
+
+    def test_safe_publish_date_str_iso_string(self) -> None:
+        assert _safe_publish_date_str("2026-04-15T08:30:00+00:00") == "2026-04-15"
+
+    def test_safe_publish_date_str_date_string(self) -> None:
+        assert _safe_publish_date_str("2026-04-15") == "2026-04-15"
