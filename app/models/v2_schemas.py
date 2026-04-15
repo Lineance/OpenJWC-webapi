@@ -18,6 +18,11 @@ class LoginRequest(BaseModel):
     device_name: str
 
 
+class UnbindRequest(BaseModel):
+    """解绑设备请求"""
+    device_uuid: str  # 要解绑的目标设备ID
+
+
 # ==================== 响应模型 ====================
 
 class LoginData(BaseModel):

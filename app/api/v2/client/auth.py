@@ -35,7 +35,7 @@ async def register(
 @router.post("/login", response_model=V2Response)
 async def login(
     body: LoginRequest,
-    x_device_id: str = Header(default=None),
+    x_device_id: str = Header(..., description="设备唯一标识"),
 ):
     """登录接口"""
     user = db.authenticate_user(
@@ -48,16 +48,20 @@ async def login(
             detail="账号或密码错误",
         )
 
-    # 生成长期 JWT Token
-    token = create_client_token(data={"sub": user["username"], "user_id": user["id"]})
+    # 生成长期 JWT Token（包含 device_uuid，实现一设备一Token强绑定）
+    token = create_client_token(data={
+        "sub": user["username"],
+        "user_id": user["id"],
+        "device_uuid": x_device_id,
+    })
 
-    # 记录设备登录
-    if x_device_id:
-        db.upsert_user_device(
-            user_id=user["id"],
-            device_uuid=x_device_id,
-            device_name=body.device_name,
-        )
+    # 记录设备登录，并将 token_hash 存入数据库
+    db.upsert_user_device(
+        user_id=user["id"],
+        device_uuid=x_device_id,
+        device_name=body.device_name,
+        token=token,
+    )
 
     logger.info(f"用户登录成功: {user['username']}")
     return V2Response(

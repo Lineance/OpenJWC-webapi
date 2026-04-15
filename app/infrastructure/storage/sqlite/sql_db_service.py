@@ -86,8 +86,9 @@ class DBService(ValidationMixin, AdminMixin, DeviceMixin, MottoMixin, UserMixin)
             user_id INTEGER NOT NULL,
             device_uuid TEXT NOT NULL,
             device_name TEXT NOT NULL,
+            token_hash TEXT,
             last_login TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id),
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
             UNIQUE(user_id, device_uuid)
         )
         """
@@ -118,6 +119,9 @@ class DBService(ValidationMixin, AdminMixin, DeviceMixin, MottoMixin, UserMixin)
             cursor.execute(create_submissions_sql)
             cursor.execute(create_users_sql)
             cursor.execute(create_user_devices_sql)
+            # user_devices 索引
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_devices_token_hash ON user_devices(token_hash);")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_devices_user_device ON user_devices(user_id, device_uuid);")
             conn.commit()
             logger.info("sql数据库初始化完成")
 

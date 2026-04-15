@@ -137,11 +137,14 @@ async def verify_api_key_and_device(
 
 async def verify_client_token(
     credentials: HTTPAuthorizationCredentials = Depends(security),
+    x_device_id: str = Header(default=None),
 ) -> dict:
     """
     v2 客户端接口的全局鉴权依赖。
-    从 Authorization Header 中提取 JWT Token，解码并返回用户信息。
-    Token 无效或过期时抛出 401。
+    三重验证：
+    1. JWT 签名和过期验证
+    2. 设备ID一致性检查（Token中的 device_uuid vs 请求头 X-Device-ID）
+    3. 数据库验证（用户存在性 + 设备-Token绑定关系）
     """
     if not credentials:
         raise HTTPException(
@@ -152,16 +155,53 @@ async def verify_client_token(
 
     token = credentials.credentials
     try:
+        # ====== 第一重：JWT 签名和过期验证 ======
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
         user_id: int = payload.get("user_id")
+        token_device_uuid: str = payload.get("device_uuid")
         if username is None or user_id is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="无效的Token",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-        return {"username": username, "user_id": user_id}
+
+        # ====== 第二重：设备ID一致性检查 ======
+        if token_device_uuid and x_device_id and token_device_uuid != x_device_id:
+            logger.warning(
+                f"v2鉴权拦截 - Token设备[{token_device_uuid[:8]}...]与请求设备[{x_device_id[:8]}...]不匹配"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="设备ID不匹配，请重新登录",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        # ====== 第三重：数据库验证 ======
+        # 3.1 用户存在性验证
+        user = db.get_user_by_id(user_id)
+        if not user:
+            logger.warning(f"v2鉴权拦截 - user_id={user_id}在数据库中不存在")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="用户不存在",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        # 3.2 设备-Token绑定关系验证
+        if token_device_uuid:
+            if not db.check_device_token_binding(user_id, token_device_uuid, token):
+                logger.warning(
+                    f"v2鉴权拦截 - 用户[{user_id}]设备[{token_device_uuid[:8]}...]未授权或Token已失效"
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="设备未授权或Token已失效，请重新登录",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+
+        return {"username": user["username"], "user_id": user["id"], "device_uuid": token_device_uuid}
     except jwt.ExpiredSignatureError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

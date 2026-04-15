@@ -1,4 +1,5 @@
 import json
+import hashlib
 from datetime import datetime, timezone
 from typing import Optional, List
 
@@ -58,6 +59,17 @@ class UserMixin:
                 return None
             return {"id": row["id"], "username": row["username"], "email": row["email"]}
 
+    def get_user_by_id(self: DBInterface, user_id: int) -> Optional[dict]:
+        """根据用户ID查询用户，用于Token鉴权时验证用户是否真实存在"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT id, username, email FROM users WHERE id = ?",
+                (user_id,),
+            )
+            row = cursor.fetchone()
+            return dict(row) if row else None
+
     def get_user_by_username(self: DBInterface, username: str) -> Optional[dict]:
         """根据用户名查询用户"""
         with self.get_connection() as conn:
@@ -72,24 +84,28 @@ class UserMixin:
     # ==================== 用户设备 ====================
 
     def upsert_user_device(
-        self: DBInterface, user_id: int, device_uuid: str, device_name: str
+        self: DBInterface, user_id: int, device_uuid: str, device_name: str,
+        token: str = None,
     ) -> None:
         """
         登录时记录/更新设备。
-        如果设备已存在则更新 last_login 和 device_name，否则插入新记录。
+        如果设备已存在则更新 last_login、device_name 和 token_hash，否则插入新记录。
+        token_hash 存储 Token 的 SHA256 哈希，用于鉴权时校验绑定关系。
         """
         now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        t_hash = hashlib.sha256(token.encode()).hexdigest() if token else None
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
-                INSERT INTO user_devices (user_id, device_uuid, device_name, last_login)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO user_devices (user_id, device_uuid, device_name, token_hash, last_login)
+                VALUES (?, ?, ?, ?, ?)
                 ON CONFLICT(user_id, device_uuid) DO UPDATE SET
                     device_name = excluded.device_name,
+                    token_hash = excluded.token_hash,
                     last_login = excluded.last_login
                 """,
-                (user_id, device_uuid, device_name, now),
+                (user_id, device_uuid, device_name, t_hash, now),
             )
             conn.commit()
             logger.info(f"用户[{user_id}]设备[{device_uuid[:8]}...]登录记录已更新")
@@ -104,6 +120,23 @@ class UserMixin:
             )
             rows = cursor.fetchall()
             return [dict(row) for row in rows]
+
+    def check_device_token_binding(
+        self: DBInterface, user_id: int, device_uuid: str, token: str
+    ) -> bool:
+        """
+        校验设备-Token绑定关系。
+        计算Token的SHA256哈希，与数据库中存储的token_hash比对。
+        :return: True 表示绑定关系有效
+        """
+        t_hash = hashlib.sha256(token.encode()).hexdigest()
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT id FROM user_devices WHERE user_id = ? AND device_uuid = ? AND token_hash = ?",
+                (user_id, device_uuid, t_hash),
+            )
+            return cursor.fetchone() is not None
 
     def unbind_user_device(self: DBInterface, user_id: int, device_uuid: str) -> bool:
         """
