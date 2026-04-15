@@ -292,17 +292,11 @@ class LanceDBConnection:
         order_table = self.create_article_order_table(exist_ok=True)
 
         # 获取所有文章 - 只选择需要的列
-        try:
-            all_articles = (
-                articles_table.search()
-                .select(["news_id", "publish_date", "source_site"])
-                .to_list()
-            )
-        except Exception as e:
-            logger.warning(f"search with select failed: {e}, falling back to pandas")
-            all_articles = articles_table.to_pandas()[
-                ["news_id", "publish_date", "source_site"]
-            ].to_dict("records")
+        all_articles = (
+            articles_table.search()
+            .select(["news_id", "publish_date", "tags"])
+            .to_list()
+        )
 
         # 按 publish_date 降序排序
         def sort_key(item):
@@ -320,7 +314,12 @@ class LanceDBConnection:
         category_counters: dict[str, int] = {}
 
         for i, article in enumerate(all_articles, start=1):
-            category = article.get("source_site") or ""
+            # 提取 label：从 tags[0] 获取，标签列表的第一个元素作为 label
+            tags = article.get("tags")
+            if isinstance(tags, list) and tags and tags[0]:
+                category = str(tags[0])
+            else:
+                category = ""
 
             # 分类内序号
             if category not in category_counters:

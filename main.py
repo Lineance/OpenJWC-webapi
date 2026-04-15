@@ -13,6 +13,15 @@ import os
 async def lifespan(app: FastAPI):
     logger.info("正在启动服务...")
     db.sync_admins_from_config()
+
+    # 启动时检查 article_order 同步（label_stats 在 _get_synced_connection 中一起重建）
+    from app.infrastructure.storage.lancedb.repository import get_article_repository
+    try:
+        repo = get_article_repository()
+        repo._get_synced_connection()
+    except Exception as e:
+        logger.warning(f"启动时同步检查失败: {e}")
+
     api_targets = ["https://api.deepseek.com", "https://open.bigmodel.cn"]
     is_network_healthy = await diagnose_network_environment(api_targets)
     if not is_network_healthy:

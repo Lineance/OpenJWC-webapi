@@ -24,6 +24,14 @@ from .schema import ArticleFields, ArticleRecord
 
 logger = logging.getLogger(__name__)
 
+# =============================================================================
+# 全局同步检查控制
+# =============================================================================
+
+_last_sync_check = 0.0
+_SYNC_CHECK_INTERVAL = 300  # 5分钟内不重复检查
+_sync_rebuild_lock = threading.Lock()
+
 
 def _safe_publish_date_str(value: Any) -> str:
     if value is None:
@@ -142,10 +150,10 @@ class ArticleRepository:
             self._table = table
 
         self._guard = SQLGuard()
-        self._notice_cache_lock = threading.Lock()
-        self._notice_labels_cache: list[str] | None = None
-        self._notice_labels_cache_ts: float = 0.0
-        self._notice_labels_cache_ttl_sec = 60.0
+        # Label 缓存
+        self._labels_cache: list[str] | None = None
+        self._labels_cache_ts: float = 0.0
+        self._labels_cache_ttl_sec: float = 300.0  # 5分钟缓存
         logger.info(f"ArticleRepository initialized for table: {self._table.name}")
 
     _NOTICE_FULL_SELECT_FIELDS = [
@@ -166,11 +174,6 @@ class ArticleRepository:
         ArticleFields.TAGS,
         ArticleFields.METADATA,
     ]
-
-    def _invalidate_notice_cache(self) -> None:
-        with self._notice_cache_lock:
-            self._notice_labels_cache = None
-            self._notice_labels_cache_ts = 0.0
 
     def _fetch_docs_by_news_ids(
         self,
@@ -242,21 +245,50 @@ class ArticleRepository:
         return ordered_ids
 
     def _get_synced_connection(self):
-        """Keep article_order in sync with articles for stable notice pagination."""
+        """Keep article_order and label_stats in sync with articles.
+
+        使用检查间隔避免每次请求都执行 count_rows() 检查。
+        同时重建 article_order 和 label_stats。
+        """
+        global _last_sync_check
         conn = get_connection()
+
+        now = time.time()
+        if now - _last_sync_check > _SYNC_CHECK_INTERVAL:
+            with _sync_rebuild_lock:
+                # 再次检查时间（可能其他线程已重建）
+                if now - _last_sync_check > _SYNC_CHECK_INTERVAL:
+                    try:
+                        order_table = conn.create_article_order_table(exist_ok=True)
+                        order_count = int(order_table.count_rows())
+                        article_count = int(self._table.count_rows())
+                        if order_count != article_count:
+                            logger.info(
+                                f"Rebuilding article_order (order={order_count}, articles={article_count})"
+                            )
+                            conn.rebuild_article_order()
+                        # 同时重建 label_stats
+                        self.rebuild_label_stats()
+                        _last_sync_check = time.time()
+                    except Exception as e:
+                        logger.warning(f"Sync check failed: {e}")
+
+        return conn
+
+    def _maybe_rebuild_order(self) -> None:
+        """写入后检查是否需要重建，仅在新数据导致数量不匹配时触发"""
         try:
+            conn = get_connection()
             order_table = conn.create_article_order_table(exist_ok=True)
             order_count = int(order_table.count_rows())
             article_count = int(self._table.count_rows())
             if order_count != article_count:
                 logger.info(
-                    "article_order is out of sync, rebuilding "
-                    f"(order={order_count}, articles={article_count})"
+                    f"New articles added, rebuilding article_order (order={order_count}, articles={article_count})"
                 )
                 conn.rebuild_article_order()
         except Exception as e:
-            logger.warning(f"Failed to ensure article_order sync: {e}")
-        return conn
+            logger.warning(f"Post-write sync check failed: {e}")
 
     @property
     def table(self) -> Any:
@@ -289,7 +321,8 @@ class ArticleRepository:
 
             # 插入数据
             self._table.add([record_dict])
-            self._invalidate_notice_cache()
+            self._maybe_rebuild_order()
+            self._update_label_stats_for_article(record_dict.get(ArticleFields.TAGS))
             logger.debug(f"Added article: {record.news_id}")
             return True
         except (OSError, PermissionError, IOError) as e:
@@ -328,7 +361,10 @@ class ArticleRepository:
 
             # 批量插入
             self._table.add(records)
-            self._invalidate_notice_cache()
+            self._maybe_rebuild_order()
+            # 更新 label 统计
+            for record in records:
+                self._update_label_stats_for_article(record.get(ArticleFields.TAGS))
             logger.info(f"Added {len(records)} articles")
             return len(records)
         except Exception as e:
@@ -378,7 +414,6 @@ class ArticleRepository:
             self._table.merge_insert(
                 ArticleFields.NEWS_ID
             ).when_matched_update_all().execute([update_data])
-            self._invalidate_notice_cache()
             logger.debug(f"Updated article: {news_id}")
             return True
         except Exception as e:
@@ -398,7 +433,6 @@ class ArticleRepository:
         try:
             safe_news_id = sanitize(news_id)
             self._table.delete(f"{ArticleFields.NEWS_ID} = '{safe_news_id}'")
-            self._invalidate_notice_cache()
             logger.info(f"Deleted article from LanceDB: {news_id}")
             return True
         except Exception as e:
@@ -663,7 +697,6 @@ class ArticleRepository:
             self._table.merge_insert(
                 ArticleFields.NEWS_ID
             ).when_matched_update_all().execute(updates)
-            self._invalidate_notice_cache()
             logger.info(f"Bulk updated {len(updates)} articles")
             return len(updates)
         except Exception as e:
@@ -745,84 +778,133 @@ class ArticleRepository:
         try:
             conn = self._get_synced_connection()
 
-            if label is None:
-                ordered_ids, total = conn.get_ordered_news_ids(
-                    offset=offset, limit=limit
-                )
-                docs = self._fetch_docs_by_news_ids(
-                    ordered_ids,
-                    self._NOTICE_FULL_SELECT_FIELDS,
-                )
-                return total, [_to_notice_item(doc) for doc in docs]
-
-            # Apply label filtering in chunked mode to avoid full-table load.
-            filtered_ids: list[str] = []
-            all_ordered_ids = self._iter_ordered_news_ids(chunk_size=500)
-
-            for chunk_offset in range(0, len(all_ordered_ids), 500):
-                chunk_ids = all_ordered_ids[chunk_offset : chunk_offset + 500]
-                chunk_docs = self._fetch_docs_by_news_ids(
-                    chunk_ids,
-                    self._NOTICE_LABEL_SELECT_FIELDS,
-                )
-                for doc in chunk_docs:
-                    if _extract_label(doc) == label:
-                        doc_id = str(doc.get(ArticleFields.NEWS_ID, ""))
-                        if doc_id:
-                            filtered_ids.append(doc_id)
-
-            total = len(filtered_ids)
-            page_ids = filtered_ids[offset : offset + limit]
-            page_docs = self._fetch_docs_by_news_ids(
-                page_ids,
+            # 直接使用 article_order.category (= label) 过滤
+            ordered_ids, total = conn.get_ordered_news_ids(
+                offset=offset, limit=limit, category=label
+            )
+            docs = self._fetch_docs_by_news_ids(
+                ordered_ids,
                 self._NOTICE_FULL_SELECT_FIELDS,
             )
-            return total, [_to_notice_item(doc) for doc in page_docs]
+            return total, [_to_notice_item(doc) for doc in docs]
         except Exception as e:
             logger.error(f"Failed to list notices from LanceDB: {e}")
             return 0, []
 
     def get_notice_labels(self) -> list[str]:
-        """Return unique labels sorted by latest appearance."""
+        """Return unique labels from label_stats table."""
         try:
-            now = time.monotonic()
-            with self._notice_cache_lock:
-                if (
-                    self._notice_labels_cache is not None
-                    and now - self._notice_labels_cache_ts
-                    < self._notice_labels_cache_ttl_sec
-                ):
-                    return list(self._notice_labels_cache)
-
-            labels: list[str] = []
-            seen: set[str] = set()
-
-            all_ordered_ids = self._iter_ordered_news_ids(chunk_size=500)
-            for chunk_offset in range(0, len(all_ordered_ids), 500):
-                chunk_ids = all_ordered_ids[chunk_offset : chunk_offset + 500]
-                chunk_docs = self._fetch_docs_by_news_ids(
-                    chunk_ids,
-                    self._NOTICE_LABEL_SELECT_FIELDS,
-                )
-                for doc in chunk_docs:
-                    label = _extract_label(doc)
-                    if not label or label in seen:
-                        continue
-                    seen.add(label)
-                    labels.append(label)
-
-            with self._notice_cache_lock:
-                self._notice_labels_cache = list(labels)
-                self._notice_labels_cache_ts = time.monotonic()
-
+            conn = get_connection()
+            label_stats = conn.db.open_table("label_stats")
+            results = label_stats.search().to_list()
+            labels = [str(r.get("label")) for r in results if r.get("label")]
+            self._labels_cache = labels
+            self._labels_cache_ts = time.monotonic()
             return labels
-        except Exception as e:
-            logger.error(f"Failed to get notice labels from LanceDB: {e}")
-            return []
+        except Exception:
+            # 表不存在，触发重建
+            logger.info("label_stats table not found, rebuilding...")
+            self.rebuild_label_stats()
+            try:
+                conn = get_connection()
+                label_stats = conn.db.open_table("label_stats")
+                results = label_stats.search().to_list()
+                labels = [str(r.get("label")) for r in results if r.get("label")]
+                # 缓存 labels
+                self._labels_cache = labels
+                self._labels_cache_ts = time.monotonic()
+                return labels
+            except Exception:
+                return []
 
     def get_notice_total_labels(self) -> int:
-        """Return count of unique labels for notices endpoints."""
-        return len(self.get_notice_labels())
+        """Return count of unique labels from cached labels list."""
+        if (
+            self._labels_cache is not None
+            and time.monotonic() - self._labels_cache_ts < self._labels_cache_ttl_sec
+        ):
+            return len(self._labels_cache)
+        # 刷新缓存
+        self.get_notice_labels()
+        return len(self._labels_cache) if self._labels_cache else 0
+        try:
+            conn = get_connection()
+            label_stats = conn.db.open_table("label_stats")
+            return label_stats.count_rows()
+        except Exception:
+            # 表不存在，触发重建
+            logger.info("label_stats table not found, rebuilding...")
+            self.rebuild_label_stats()
+            try:
+                conn = get_connection()
+                return conn.db.open_table("label_stats").count_rows()
+            except Exception:
+                return 0
+
+    def rebuild_label_stats(self) -> dict[str, int]:
+        """Rebuild label_stats table from articles data. Returns label counts."""
+        try:
+            conn = get_connection()
+            all_docs = self._table.search().select([ArticleFields.TAGS]).to_list()
+
+            from collections import Counter
+            labels = []
+            for doc in all_docs:
+                tags = doc.get(ArticleFields.TAGS, [])
+                if tags and isinstance(tags, list) and tags[0]:
+                    labels.append(tags[0])
+
+            counter = Counter(labels)
+
+            # 清空并重建 label_stats 表
+            try:
+                conn.db.drop_table("label_stats")
+            except Exception:
+                pass
+
+            import pyarrow as pa
+            schema = pa.schema([
+                pa.field("label", pa.string(), nullable=False),
+                pa.field("count", pa.int32(), nullable=False),
+            ])
+            conn.db.create_table("label_stats", schema=schema)
+
+            stats_table = conn.db.open_table("label_stats")
+            if counter:
+                stats_data = [{"label": k, "count": v} for k, v in counter.items()]
+                stats_table.add(stats_data)
+
+            logger.info(f"Rebuilt label_stats with {len(counter)} labels")
+            return dict(counter)
+        except Exception as e:
+            logger.error(f"Failed to rebuild label_stats: {e}")
+            return {}
+
+    def _update_label_stats_for_article(self, tags: list | None) -> None:
+        """Update label_stats when an article is added. Increments count for the label."""
+        if not tags:
+            return
+        label = tags[0] if tags else None
+        if not label:
+            return
+        try:
+            conn = get_connection()
+            stats_table = conn.db.open_table("label_stats")
+
+            # 检查 label 是否存在
+            existing = stats_table.search().where(f"label = '{label}'").limit(1).to_list()
+            if existing:
+                # 更新 count
+                old_count = existing[0].get("count", 0)
+                # 删除旧记录
+                stats_table.delete(f"label = '{label}'")
+                # 添加新记录
+                stats_table.add([{"label": label, "count": old_count + 1}])
+            else:
+                # 新增 label
+                stats_table.add([{"label": label, "count": 1}])
+        except Exception as e:
+            logger.warning(f"Failed to update label_stats for '{label}': {e}")
 
     def get_notice_info(self, news_id: str) -> dict[str, Any] | None:
         """Return lightweight notice info by ID for admin checks."""
