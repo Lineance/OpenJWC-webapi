@@ -1413,10 +1413,16 @@ dependencies = [
     { name = "pyjwt" },
     { name = "python-multipart" },
     { name = "rich" },
-    { name = "sentence-transformers" },
     { name = "tenacity" },
     { name = "uvicorn" },
     { name = "zhipuai" },
+]
+
+[package.optional-dependencies]
+local = [
+    { name = "huggingface-hub" },
+    { name = "sentence-transformers" },
+    { name = "torch" },
 ]
 
 [package.dev-dependencies]
@@ -1433,6 +1439,7 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.135.1" },
     { name = "gnureadline", marker = "sys_platform == 'linux'", specifier = ">=8.3.3" },
     { name = "httpx", extras = ["socks"], specifier = ">=0.28.1" },
+    { name = "huggingface-hub", marker = "extra == 'local'", specifier = ">=0.23.0" },
     { name = "lancedb", specifier = ">=0.29.0" },
     { name = "litellm", specifier = ">=1.80.0" },
     { name = "markdown", specifier = ">=3.7" },
@@ -1442,11 +1449,13 @@ requires-dist = [
     { name = "pyjwt", specifier = ">=2.8.0" },
     { name = "python-multipart", specifier = ">=0.0.22" },
     { name = "rich", specifier = ">=14.3.3" },
-    { name = "sentence-transformers", specifier = ">=2.2.0" },
+    { name = "sentence-transformers", marker = "extra == 'local'", specifier = ">=2.2.0" },
     { name = "tenacity", specifier = ">=9.1.4" },
+    { name = "torch", marker = "extra == 'local'", specifier = ">=2.2.0" },
     { name = "uvicorn", specifier = ">=0.41.0" },
     { name = "zhipuai", specifier = ">=2.1.5.20250825" },
 ]
+provides-extras = ["local"]
 
 [package.metadata.requires-dev]
 dev = [

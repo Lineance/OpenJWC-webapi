@@ -51,7 +51,7 @@ OpenJWC-WebAPI/
 ### 环境要求
 
 - Python >= 3.12 
-- pip 包管理器
+- uv 包管理器
 
 ### 环境变量
 
@@ -82,7 +82,13 @@ OpenJWC-WebAPI/
 3. **安装项目依赖**
 
    ```bash
-   uv pip install -e .  # uv会自动创建虚拟环境并安装依赖
+   uv pip install -e .  # 默认安装（云端 embedding 路径）
+   ```
+
+   如需本地 embedding（sentence-transformers/torch），安装 local extra：
+
+   ```bash
+   uv pip install -e ".[local]"
    ```
 
 4. **初始化数据库**

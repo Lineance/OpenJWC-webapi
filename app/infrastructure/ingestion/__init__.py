@@ -17,6 +17,7 @@ Usage:
     >>> print(result.summary())
 """
 
+from .embedder.clouds_embedder import Embedder
 from .dedup import (
     DuplicateDetector,
     RepositoryDedup,
@@ -24,7 +25,7 @@ from .dedup import (
     compute_url_hash,
     is_similar,
 )
-from .embedder import Embedder, embed_content, embed_query, embed_title, get_embedder
+from .embedder_provider import embed_content, embed_query, embed_title, get_embedder
 from .normalizers import (
     format_datetime,
     markdown_to_text,

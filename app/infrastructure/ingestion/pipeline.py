@@ -24,7 +24,7 @@ from app.infrastructure.storage.lancedb import (
 )
 
 from .dedup import DuplicateDetector, RepositoryDedup
-from .embedder import Embedder, get_embedder
+from .embedder_provider import EmbeddingClient, get_embedder
 from .normalizers import normalize_content, normalize_datetime, normalize_markdown
 from .tag_matcher import TagMatcher, get_tag_matcher
 from .validators import DocumentValidator, ValidationResult
@@ -126,7 +126,7 @@ class IngestionPipeline:
     def __init__(
         self,
         repository: ArticleRepository | None = None,
-        embedder: Embedder | None = None,
+        embedder: EmbeddingClient | None = None,
         validator: DocumentValidator | None = None,
         tag_matcher: TagMatcher | None = None,
         skip_validation: bool = False,
@@ -382,7 +382,9 @@ class IngestionPipeline:
         result[ArticleFields.URL] = data.get("url", "")
 
         # 日期标准化
-        result[ArticleFields.PUBLISH_DATE] = normalize_datetime(data.get("publish_date"))
+        result[ArticleFields.PUBLISH_DATE] = normalize_datetime(
+            data.get("publish_date")
+        )
 
         # 可选字段
         result[ArticleFields.SOURCE_SITE] = data.get("source_site", "")
@@ -412,7 +414,9 @@ class IngestionPipeline:
             import json
 
             result[ArticleFields.METADATA] = (
-                json.dumps(metadata, ensure_ascii=False) if isinstance(metadata, dict) else metadata
+                json.dumps(metadata, ensure_ascii=False)
+                if isinstance(metadata, dict)
+                else metadata
             )
         else:
             result[ArticleFields.METADATA] = None
@@ -473,7 +477,9 @@ class IngestionPipeline:
                     f"Matched {len(matched_tags)} tags for article: {data.get(ArticleFields.NEWS_ID)}"
                 )
             else:
-                logger.debug(f"No tags matched for article: {data.get(ArticleFields.NEWS_ID)}")
+                logger.debug(
+                    f"No tags matched for article: {data.get(ArticleFields.NEWS_ID)}"
+                )
 
             return data
         except Exception as e:
@@ -491,10 +497,14 @@ class IngestionPipeline:
         contents = [doc.get(ArticleFields.CONTENT_TEXT, "") for doc in docs]
 
         # 批量向量化
-        title_vecs, content_vecs = self._embedder.embed_batch(titles, contents, batch_size)
+        title_vecs, content_vecs = self._embedder.embed_batch(
+            titles, contents, batch_size
+        )
 
         # 将向量添加回文档
-        for i, (title_vec, content_vec) in enumerate(zip(title_vecs, content_vecs, strict=False)):
+        for i, (title_vec, content_vec) in enumerate(
+            zip(title_vecs, content_vecs, strict=False)
+        ):
             docs[i][ArticleFields.TITLE_EMBEDDING] = title_vec
             docs[i][ArticleFields.CONTENT_EMBEDDING] = content_vec
 

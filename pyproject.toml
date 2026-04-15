@@ -19,11 +19,17 @@ dependencies = [
   "pyjwt>=2.8.0",
   "python-multipart>=0.0.22",
   "rich>=14.3.3",
-  "sentence-transformers>=2.2.0",
   "tenacity>=9.1.4",
   "uvicorn>=0.41.0",
   "zhipuai>=2.1.5.20250825",
   "gnureadline>=8.3.3; sys_platform == 'linux'",
+]
+
+[project.optional-dependencies]
+local = [
+  "sentence-transformers>=2.2.0",
+  "huggingface-hub>=0.23.0",
+  "torch>=2.2.0",
 ]
 
 [dependency-groups]

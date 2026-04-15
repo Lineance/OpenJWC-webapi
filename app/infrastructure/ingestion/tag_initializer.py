@@ -28,9 +28,9 @@ import yaml
 # 添加项目根目录到 Python 路径
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
+from app.infrastructure.ingestion.embedder_provider import get_embedder
 from app.infrastructure.storage.lancedb.tag_repository import get_tag_repository
 from app.infrastructure.storage.lancedb.tag_schema import TagRecord
-from app.infrastructure.ingestion.embedder import get_embedder
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +82,9 @@ class TagConfigLoader:
 
         # 合并自动和手动标签
         all_tags = [t for t in (tags + manual_tags) if isinstance(t, dict)]
-        logger.info(f"Parsed {len(all_tags)} tags ({len(tags)} auto, {len(manual_tags)} manual)")
+        logger.info(
+            f"Parsed {len(all_tags)} tags ({len(tags)} auto, {len(manual_tags)} manual)"
+        )
         return all_tags
 
 
@@ -193,7 +195,9 @@ class TagInitializer:
             logger.error(f"Failed to clear existing tags: {e}")
             return False
 
-    def _generate_tag_embeddings(self, tag_definitions: list[dict[str, Any]]) -> list[TagRecord]:
+    def _generate_tag_embeddings(
+        self, tag_definitions: list[dict[str, Any]]
+    ) -> list[TagRecord]:
         """
         为标签定义生成向量嵌入
 
@@ -265,7 +269,9 @@ class TagInitializer:
             if saved_count == len(tag_records):
                 logger.info(f"Successfully saved all {saved_count} tags")
             else:
-                logger.warning(f"Partial save: {saved_count}/{len(tag_records)} tags saved")
+                logger.warning(
+                    f"Partial save: {saved_count}/{len(tag_records)} tags saved"
+                )
 
             return saved_count
         except Exception as e:
@@ -335,7 +341,9 @@ class TagInitializer:
 
 def parse_args() -> argparse.Namespace:
     """解析命令行参数"""
-    parser = argparse.ArgumentParser(description="Initialize tag system with predefined tags")
+    parser = argparse.ArgumentParser(
+        description="Initialize tag system with predefined tags"
+    )
     parser.add_argument(
         "--config",
         type=str,
@@ -347,7 +355,9 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--no-indices", action="store_true", help="Skip index creation")
     parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
-    parser.add_argument("--stats", action="store_true", help="Show statistics after initialization")
+    parser.add_argument(
+        "--stats", action="store_true", help="Show statistics after initialization"
+    )
     return parser.parse_args()
 
 

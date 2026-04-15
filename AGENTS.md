@@ -2,7 +2,10 @@
 
 ## Package Management
 
-**Use `uv`, not pip** - project uses uv.lock and requires `uv pip install -e .`
+**Use `uv`, not pip** - project uses uv.lock.
+
+- Default install (cloud embedding path): `uv pip install -e .`
+- Local embedding install (sentence-transformers/torch): `uv pip install -e ".[local]"`
 
 Python 3.12 required (see `.python-version`)
 

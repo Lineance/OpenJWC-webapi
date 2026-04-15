@@ -20,9 +20,15 @@ if str(_root) not in sys.path:
     sys.path.insert(0, str(_root))
 
 try:
-    from app.infrastructure.ingestion.embedder import Embedder, get_embedder
+    from app.infrastructure.ingestion.embedder_provider import (
+        EmbeddingClient,
+        get_embedder,
+    )
 except ImportError:
-    from app.infrastructure.ingestion.embedder import Embedder, get_embedder
+    from app.infrastructure.ingestion.embedder_provider import (
+        EmbeddingClient,
+        get_embedder,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +55,7 @@ class RetrievalEmbedder:
         Args:
             embedder: 基础向量化器
         """
-        self._embedder = embedder or get_embedder()
+        self._embedder: EmbeddingClient = embedder or get_embedder()
         # 获取模型信息
         self._model_info = self._embedder.get_dimensions()
 
@@ -77,7 +83,9 @@ class RetrievalEmbedder:
             elif field == "content":
                 return [0.0] * self._model_info["content"]
             else:  # both
-                return [0.0] * self._model_info["title"], [0.0] * self._model_info["content"]
+                return [0.0] * self._model_info["title"], [0.0] * self._model_info[
+                    "content"
+                ]
 
         # 检查是否使用 BGE 模型
         content_model_name = self._model_info.get("content_model", "")
@@ -92,10 +100,14 @@ class RetrievalEmbedder:
             # 标题查询通常不需要特殊前缀
             return cast("list[float]", self._embedder.embed_titles([query])[0])
         elif field == "content":
-            return cast("list[float]", self._embedder.embed_contents([query_with_prefix])[0])
+            return cast(
+                "list[float]", self._embedder.embed_contents([query_with_prefix])[0]
+            )
         else:  # both
             title_vec = cast("list[float]", self._embedder.embed_titles([query])[0])
-            content_vec = cast("list[float]", self._embedder.embed_contents([query_with_prefix])[0])
+            content_vec = cast(
+                "list[float]", self._embedder.embed_contents([query_with_prefix])[0]
+            )
             return title_vec, content_vec
 
     def embed_queries(
@@ -130,9 +142,14 @@ class RetrievalEmbedder:
             processed = queries
 
         if field == "title":
-            return cast("list[list[float]]", self._embedder.embed_titles(processed, batch_size))
+            return cast(
+                "list[list[float]]", self._embedder.embed_titles(processed, batch_size)
+            )
         else:  # content
-            return cast("list[list[float]]", self._embedder.embed_contents(processed, batch_size))
+            return cast(
+                "list[list[float]]",
+                self._embedder.embed_contents(processed, batch_size),
+            )
 
     def embed_hybrid_query(
         self,
@@ -157,7 +174,9 @@ class RetrievalEmbedder:
         _ = (title_weight, content_weight)
 
         # 明确告知类型检查器返回值应为 list[float]
-        title_vec = cast("list[float]", self.embed_query(query, field="title", normalize=normalize))
+        title_vec = cast(
+            "list[float]", self.embed_query(query, field="title", normalize=normalize)
+        )
         content_vec = cast(
             "list[float]", self.embed_query(query, field="content", normalize=normalize)
         )
