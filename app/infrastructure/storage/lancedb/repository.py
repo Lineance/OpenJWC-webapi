@@ -12,10 +12,12 @@ Responsibilities:
 
 import json
 import logging
+import threading
+import time
 from datetime import datetime
 from typing import Any, cast
 
-from .connection import init_database
+from .connection import get_connection, init_database
 from .exceptions import RepositorySystemError
 from .guard import SQLGuard, sanitize
 from .schema import ArticleFields, ArticleRecord
@@ -81,14 +83,6 @@ def _to_notice_item(record: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _notice_sort_key(record: dict[str, Any]) -> tuple[str, str]:
-    # Stable ordering for pagination: publish_date desc, then news_id desc.
-    return (
-        _safe_publish_date_str(record.get(ArticleFields.PUBLISH_DATE)),
-        str(record.get(ArticleFields.NEWS_ID, "")),
-    )
-
-
 # =============================================================================
 # Article 仓库类
 # =============================================================================
@@ -133,7 +127,121 @@ class ArticleRepository:
             self._table = table
 
         self._guard = SQLGuard()
+        self._notice_cache_lock = threading.Lock()
+        self._notice_labels_cache: list[str] | None = None
+        self._notice_labels_cache_ts: float = 0.0
+        self._notice_labels_cache_ttl_sec = 60.0
         logger.info(f"ArticleRepository initialized for table: {self._table.name}")
+
+    _NOTICE_FULL_SELECT_FIELDS = [
+        ArticleFields.NEWS_ID,
+        ArticleFields.TITLE,
+        ArticleFields.PUBLISH_DATE,
+        ArticleFields.URL,
+        ArticleFields.SOURCE_SITE,
+        ArticleFields.TAGS,
+        ArticleFields.METADATA,
+        ArticleFields.ATTACHMENTS,
+        ArticleFields.CONTENT_TEXT,
+    ]
+
+    _NOTICE_LABEL_SELECT_FIELDS = [
+        ArticleFields.NEWS_ID,
+        ArticleFields.SOURCE_SITE,
+        ArticleFields.TAGS,
+        ArticleFields.METADATA,
+    ]
+
+    def _invalidate_notice_cache(self) -> None:
+        with self._notice_cache_lock:
+            self._notice_labels_cache = None
+            self._notice_labels_cache_ts = 0.0
+
+    def _fetch_docs_by_news_ids(
+        self,
+        news_ids: list[str],
+        select_fields: list[str],
+    ) -> list[dict[str, Any]]:
+        """Batch fetch records by IDs while preserving caller order."""
+        if not news_ids:
+            return []
+
+        try:
+            safe_ids = [sanitize(news_id) for news_id in news_ids]
+            in_clause = ", ".join([f"'{news_id}'" for news_id in safe_ids])
+            where_clause = f"{ArticleFields.NEWS_ID} IN ({in_clause})"
+            docs = (
+                self._table.search().where(where_clause).select(select_fields).to_list()
+            )
+        except Exception as e:
+            logger.warning(
+                f"Batch fetch by news IDs failed, fallback to per-id query: {e}"
+            )
+            docs = []
+            for news_id in news_ids:
+                try:
+                    result = (
+                        self._table.search()
+                        .where(f"{ArticleFields.NEWS_ID} = '{sanitize(news_id)}'")
+                        .select(select_fields)
+                        .limit(1)
+                        .to_list()
+                    )
+                    if result:
+                        docs.append(result[0])
+                except Exception as single_error:
+                    logger.warning(
+                        f"Fetch by news ID failed: id={news_id}, error={single_error}"
+                    )
+
+        docs_by_id: dict[str, dict[str, Any]] = {}
+        for doc in docs:
+            doc_id = str(doc.get(ArticleFields.NEWS_ID, ""))
+            if doc_id:
+                docs_by_id[doc_id] = doc
+
+        ordered_docs: list[dict[str, Any]] = []
+        for news_id in news_ids:
+            doc = docs_by_id.get(news_id)
+            if doc is not None:
+                ordered_docs.append(doc)
+
+        return ordered_docs
+
+    def _iter_ordered_news_ids(self, chunk_size: int = 500) -> list[str]:
+        """Read ordered IDs in chunks from article_order table."""
+        conn = self._get_synced_connection()
+        _, total = conn.get_ordered_news_ids(offset=0, limit=1)
+        if total <= 0:
+            return []
+
+        ordered_ids: list[str] = []
+        for chunk_offset in range(0, total, chunk_size):
+            chunk_ids, _ = conn.get_ordered_news_ids(
+                offset=chunk_offset,
+                limit=min(chunk_size, total - chunk_offset),
+            )
+            if not chunk_ids:
+                continue
+            ordered_ids.extend(chunk_ids)
+        return ordered_ids
+
+    def _get_synced_connection(self):
+        """Keep article_order in sync with articles for stable notice pagination."""
+        conn = get_connection()
+        try:
+            order_table = conn.create_article_order_table(exist_ok=True)
+            order_count = int(order_table.count_rows())
+            article_count = int(self._table.count_rows())
+            if order_count != article_count:
+                logger.info(
+                    "article_order is out of sync, rebuilding "
+                    f"(order={order_count}, articles={article_count})"
+                )
+                conn.rebuild_article_order()
+        except Exception as e:
+            logger.warning(f"Failed to ensure article_order sync: {e}")
+        return conn
 
     @property
     def table(self) -> Any:
@@ -166,6 +274,7 @@ class ArticleRepository:
 
             # 插入数据
             self._table.add([record_dict])
+            self._invalidate_notice_cache()
             logger.debug(f"Added article: {record.news_id}")
             return True
         except (OSError, PermissionError, IOError) as e:
@@ -204,6 +313,7 @@ class ArticleRepository:
 
             # 批量插入
             self._table.add(records)
+            self._invalidate_notice_cache()
             logger.info(f"Added {len(records)} articles")
             return len(records)
         except Exception as e:
@@ -253,6 +363,7 @@ class ArticleRepository:
             self._table.merge_insert(
                 ArticleFields.NEWS_ID
             ).when_matched_update_all().execute([update_data])
+            self._invalidate_notice_cache()
             logger.debug(f"Updated article: {news_id}")
             return True
         except Exception as e:
@@ -272,6 +383,7 @@ class ArticleRepository:
         try:
             safe_news_id = sanitize(news_id)
             self._table.delete(f"{ArticleFields.NEWS_ID} = '{safe_news_id}'")
+            self._invalidate_notice_cache()
             logger.info(f"Deleted article from LanceDB: {news_id}")
             return True
         except Exception as e:
@@ -536,6 +648,7 @@ class ArticleRepository:
             self._table.merge_insert(
                 ArticleFields.NEWS_ID
             ).when_matched_update_all().execute(updates)
+            self._invalidate_notice_cache()
             logger.info(f"Bulk updated {len(updates)} articles")
             return len(updates)
         except Exception as e:
@@ -602,7 +715,7 @@ class ArticleRepository:
             return []
 
     # =========================================================================
-    # Legacy notices-compatible queries
+    # Notices queries
     # =========================================================================
 
     def list_for_notices(
@@ -612,18 +725,43 @@ class ArticleRepository:
         label: str | None = None,
     ) -> tuple[int, list[dict[str, Any]]]:
         """
-        Return notice-compatible list data from LanceDB.
-
-        This replaces SQLite notices list queries while preserving response shape.
+        Return notice list data from LanceDB.
         """
         try:
-            docs = self._table.search().to_list()
-            if label is not None:
-                docs = [doc for doc in docs if _extract_label(doc) == label]
+            conn = self._get_synced_connection()
 
-            docs.sort(key=_notice_sort_key, reverse=True)
-            total = len(docs)
-            page_docs = docs[offset : offset + limit]
+            if label is None:
+                ordered_ids, total = conn.get_ordered_news_ids(
+                    offset=offset, limit=limit
+                )
+                docs = self._fetch_docs_by_news_ids(
+                    ordered_ids,
+                    self._NOTICE_FULL_SELECT_FIELDS,
+                )
+                return total, [_to_notice_item(doc) for doc in docs]
+
+            # Apply label filtering in chunked mode to avoid full-table load.
+            filtered_ids: list[str] = []
+            all_ordered_ids = self._iter_ordered_news_ids(chunk_size=500)
+
+            for chunk_offset in range(0, len(all_ordered_ids), 500):
+                chunk_ids = all_ordered_ids[chunk_offset : chunk_offset + 500]
+                chunk_docs = self._fetch_docs_by_news_ids(
+                    chunk_ids,
+                    self._NOTICE_LABEL_SELECT_FIELDS,
+                )
+                for doc in chunk_docs:
+                    if _extract_label(doc) == label:
+                        doc_id = str(doc.get(ArticleFields.NEWS_ID, ""))
+                        if doc_id:
+                            filtered_ids.append(doc_id)
+
+            total = len(filtered_ids)
+            page_ids = filtered_ids[offset : offset + limit]
+            page_docs = self._fetch_docs_by_news_ids(
+                page_ids,
+                self._NOTICE_FULL_SELECT_FIELDS,
+            )
             return total, [_to_notice_item(doc) for doc in page_docs]
         except Exception as e:
             logger.error(f"Failed to list notices from LanceDB: {e}")
@@ -632,19 +770,36 @@ class ArticleRepository:
     def get_notice_labels(self) -> list[str]:
         """Return unique labels sorted by latest appearance."""
         try:
-            docs = self._table.search().to_list()
-            docs.sort(key=_notice_sort_key, reverse=True)
+            now = time.monotonic()
+            with self._notice_cache_lock:
+                if (
+                    self._notice_labels_cache is not None
+                    and now - self._notice_labels_cache_ts
+                    < self._notice_labels_cache_ttl_sec
+                ):
+                    return list(self._notice_labels_cache)
 
             labels: list[str] = []
             seen: set[str] = set()
-            for doc in docs:
-                label = _extract_label(doc)
-                if not label:
-                    continue
-                if label in seen:
-                    continue
-                seen.add(label)
-                labels.append(label)
+
+            all_ordered_ids = self._iter_ordered_news_ids(chunk_size=500)
+            for chunk_offset in range(0, len(all_ordered_ids), 500):
+                chunk_ids = all_ordered_ids[chunk_offset : chunk_offset + 500]
+                chunk_docs = self._fetch_docs_by_news_ids(
+                    chunk_ids,
+                    self._NOTICE_LABEL_SELECT_FIELDS,
+                )
+                for doc in chunk_docs:
+                    label = _extract_label(doc)
+                    if not label or label in seen:
+                        continue
+                    seen.add(label)
+                    labels.append(label)
+
+            with self._notice_cache_lock:
+                self._notice_labels_cache = list(labels)
+                self._notice_labels_cache_ts = time.monotonic()
+
             return labels
         except Exception as e:
             logger.error(f"Failed to get notice labels from LanceDB: {e}")
