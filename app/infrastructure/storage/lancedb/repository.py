@@ -900,7 +900,11 @@ class ArticleRepository:
         try:
             conn = get_connection()
             stats_table = conn.db.open_table("label_stats")
+        except Exception:
+            # 表不存在，跳过增量更新，依赖 rebuild_label_stats 统一重建
+            return
 
+        try:
             # 检查 label 是否存在
             existing = stats_table.search().where(f"label = '{label}'").limit(1).to_list()
             if existing:

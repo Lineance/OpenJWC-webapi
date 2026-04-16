@@ -124,6 +124,8 @@ class CloudEmbedder:
         return vector + [0.0] * (target_dim - len(vector))
 
     def _embed_one(self, text: str, target_dim: int) -> list[float]:
+        if not text or not text.strip():
+            return [0.0] * target_dim
         vector = self._call_embedding(text)
         return self._fit_dimension(vector, target_dim)
 

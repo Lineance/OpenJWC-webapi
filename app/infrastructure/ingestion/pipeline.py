@@ -287,7 +287,7 @@ class IngestionPipeline:
 
         # 3. 去重
         if not self._skip_dedup:
-            # 批内去重
+            # 批量去重
             unique_docs, dup_docs = self._detector.find_duplicates(normalized_docs)
 
             # 数据库去重

@@ -7,12 +7,14 @@ from app.core.config import CRAWLER_BIN, DATA_DIR, NOTICE_JSON
 from app.infrastructure.ingestion.adapters import CrawlerAdapter
 from app.infrastructure.ingestion.pipeline import IngestionPipeline
 from app.infrastructure.storage.lancedb.connection import get_connection
+from app.infrastructure.storage.lancedb.repository import get_article_repository
 from app.infrastructure.storage.sqlite.sql_db_service import db
 from app.utils.logging_manager import setup_logger
 
 logger = setup_logger("crawler_logs")
 adapter = CrawlerAdapter()
 pipeline = IngestionPipeline()
+article_repo = get_article_repository()
 
 
 def _get_crawler_interval_minutes() -> int:
@@ -27,7 +29,11 @@ def sync_search_index():
     try:
         docs = adapter.load_from_file(str(NOTICE_JSON))
         result = pipeline.process_batch(docs)
-        get_connection().rebuild_article_order()
+        conn = get_connection()
+        conn.rebuild_article_order()
+        article_repo.rebuild_label_stats()
+        conn._tables.pop("article_order", None)
+        conn._tables.pop("label_stats", None)
         logger.info(
             f"LanceDB 检索索引同步完成！total={result.total}, success={result.success}, duplicate={result.duplicate}, invalid={result.invalid}, error={result.error}"
         )
@@ -52,7 +58,7 @@ def execute_crawling_task():
         ),
     ]
     logger.info(f"正在执行命令: {' '.join(cmd)}")
-    result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
     logger.info("Rust 爬虫运行结束。")
     return result
 
