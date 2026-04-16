@@ -12,6 +12,23 @@ class UserMixin:
 
     # ==================== 用户账号 ====================
 
+    def create_user_from_registration(
+        self: DBInterface, username: str, email: str, password_hash: str
+    ) -> int:
+        """
+        从注册审核通过创建正式用户。
+        :return: 新用户的ID
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)",
+                (username, email, password_hash),
+            )
+            conn.commit()
+            logger.info(f"用户从注册审核通过创建成功: {username}")
+            return cursor.lastrowid
+
     def create_user(self: DBInterface, username: str, email: str, password_hash: str) -> bool:
         """
         注册新用户。
@@ -49,11 +66,13 @@ class UserMixin:
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                "SELECT id, username, email, password_hash FROM users WHERE username = ? OR email = ?",
+                "SELECT id, username, email, password_hash, is_active FROM users WHERE username = ? OR email = ?",
                 (account, account),
             )
             row = cursor.fetchone()
             if not row:
+                return None
+            if not row["is_active"]:
                 return None
             if not verify_password(password_hash, row["password_hash"]):
                 return None
@@ -64,7 +83,7 @@ class UserMixin:
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                "SELECT id, username, email FROM users WHERE id = ?",
+                "SELECT id, username, email, is_active FROM users WHERE id = ?",
                 (user_id,),
             )
             row = cursor.fetchone()
@@ -75,11 +94,70 @@ class UserMixin:
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                "SELECT id, username, email FROM users WHERE username = ?",
+                "SELECT id, username, email, is_active FROM users WHERE username = ?",
                 (username,),
             )
             row = cursor.fetchone()
             return dict(row) if row else None
+
+    def set_user_active_status(self: DBInterface, user_id: int, is_active: bool) -> bool:
+        """设置用户账号是否可用"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE users SET is_active = ? WHERE id = ?",
+                (1 if is_active else 0, user_id),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def list_users_for_admin(
+        self: DBInterface, offset: int = 0, limit: int = 20, is_active: bool | None = None
+    ) -> tuple[int, list[dict]]:
+        """获取用户列表（管理员视角）"""
+        with self.get_connection() as conn:
+            count_query = "SELECT COUNT(*) FROM users"
+            count_params: list[Any] = []
+            if is_active is not None:
+                count_query += " WHERE is_active = ?"
+                count_params.append(1 if is_active else 0)
+            cursor = conn.cursor()
+            cursor.execute(count_query, tuple(count_params))
+            total_count = cursor.fetchone()[0]
+
+            query = """
+                SELECT id, username, email, is_active, created_at
+                FROM users
+            """
+            params: list[Any] = []
+            if is_active is not None:
+                query += " WHERE is_active = ?"
+                params.append(1 if is_active else 0)
+            query += " ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?"
+            params.extend([limit, offset])
+
+            cursor.execute(query, tuple(params))
+            rows = cursor.fetchall()
+            results: list[dict] = []
+            for row in rows:
+                item = dict(row)
+                item["id"] = str(item.get("id"))
+                item["is_active"] = bool(item.get("is_active"))
+                results.append(item)
+            return int(total_count), results
+
+    def delete_user(self: DBInterface, user_id: int) -> bool:
+        """删除用户账号（级联删除关联设备记录）"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT id FROM users WHERE id = ?", (user_id,))
+            if not cursor.fetchone():
+                logger.warning(f"删除用户失败：用户ID {user_id} 不存在")
+                return False
+            cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
+            conn.commit()
+            logger.info(f"用户ID {user_id} 删除成功")
+            return True
 
     # ==================== 用户设备 ====================
 

@@ -59,6 +59,8 @@ from app.api.v1.client import register as client_register
 from app.api.v1.client import search as client_search
 from app.api.v1.client import submission as client_submission
 from app.api.v2.client import auth as v2_client_auth
+from app.api.v2.admin import user_registration as v2_admin_user_registration
+from app.api.v2.admin import user_management as v2_admin_user_management
 from app.infrastructure.storage.lancedb.connection import get_connection
 from app.infrastructure.storage.lancedb.repository import get_article_repository
 from app.infrastructure.storage.sqlite.sql_db_service import db
@@ -109,6 +111,8 @@ def test_app(isolated_db: None) -> FastAPI:
     app.include_router(admin_settings.router, prefix="/api/v1/admin")
     app.include_router(admin_apikeys.router, prefix="/api/v1/admin")
     app.include_router(admin_submission.router, prefix="/api/v1/admin")
+    app.include_router(v2_admin_user_registration.router, prefix="/api/v2/admin")
+    app.include_router(v2_admin_user_management.router, prefix="/api/v2/admin")
     return app
 
 

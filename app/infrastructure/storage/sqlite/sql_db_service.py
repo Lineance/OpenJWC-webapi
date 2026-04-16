@@ -16,6 +16,7 @@ SQLITE_USER_STATE_TABLES = {
     "submissions",
     "users",
     "user_devices",
+    "user_registrations",
 }
 
 
@@ -77,6 +78,7 @@ class DBService(ValidationMixin, AdminMixin, DeviceMixin, MottoMixin, UserMixin)
             username TEXT UNIQUE NOT NULL,
             email TEXT UNIQUE NOT NULL,
             password_hash TEXT NOT NULL,
+            is_active BOOLEAN DEFAULT 1,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
         """
@@ -109,6 +111,18 @@ class DBService(ValidationMixin, AdminMixin, DeviceMixin, MottoMixin, UserMixin)
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
         """
+        create_user_registrations_sql = """
+        CREATE TABLE IF NOT EXISTS user_registrations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            status TEXT DEFAULT 'pending',   -- 状态: pending, approved, rejected
+            review TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(create_keys_sql)
@@ -119,9 +133,14 @@ class DBService(ValidationMixin, AdminMixin, DeviceMixin, MottoMixin, UserMixin)
             cursor.execute(create_submissions_sql)
             cursor.execute(create_users_sql)
             cursor.execute(create_user_devices_sql)
+            cursor.execute(create_user_registrations_sql)
             # user_devices 索引
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_devices_token_hash ON user_devices(token_hash);")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_devices_user_device ON user_devices(user_id, device_uuid);")
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_user_devices_token_hash ON user_devices(token_hash);"
+            )
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_user_devices_user_device ON user_devices(user_id, device_uuid);"
+            )
             conn.commit()
             logger.info("sql数据库初始化完成")
 
