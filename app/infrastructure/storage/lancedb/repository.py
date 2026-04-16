@@ -20,7 +20,7 @@ from typing import Any, cast
 from .connection import get_connection, init_database
 from .exceptions import RepositorySystemError
 from .guard import SQLGuard, sanitize
-from .schema import ArticleFields, ArticleRecord
+from .schema import ARTICLE_ORDER_TABLE_NAME, ArticleFields, ArticleRecord
 
 logger = logging.getLogger(__name__)
 
@@ -792,12 +792,14 @@ class ArticleRepository:
             return 0, []
 
     def get_notice_labels(self) -> list[str]:
-        """Return unique labels from label_stats table."""
+        """Return unique labels from label_stats ordered by `order` field."""
         try:
             conn = get_connection()
             label_stats = conn.db.open_table("label_stats")
             results = label_stats.search().to_list()
+            results.sort(key=lambda r: r.get("order", 0))
             labels = [str(r.get("label")) for r in results if r.get("label")]
+
             self._labels_cache = labels
             self._labels_cache_ts = time.monotonic()
             return labels
@@ -809,8 +811,8 @@ class ArticleRepository:
                 conn = get_connection()
                 label_stats = conn.db.open_table("label_stats")
                 results = label_stats.search().to_list()
+                results.sort(key=lambda r: r.get("order", 0))
                 labels = [str(r.get("label")) for r in results if r.get("label")]
-                # 缓存 labels
                 self._labels_cache = labels
                 self._labels_cache_ts = time.monotonic()
                 return labels
@@ -842,21 +844,26 @@ class ArticleRepository:
                 return 0
 
     def rebuild_label_stats(self) -> dict[str, int]:
-        """Rebuild label_stats table from articles data. Returns label counts."""
+        """Rebuild label_stats table ordered by article_order's ordinal."""
         try:
             conn = get_connection()
-            all_docs = self._table.search().select([ArticleFields.TAGS]).to_list()
+            order_table = conn.db.open_table(ARTICLE_ORDER_TABLE_NAME)
+            total = order_table.count_rows()
+            order_results = order_table.search().limit(max(total, 1000)).to_list()
+            order_results.sort(key=lambda r: r.get("ordinal", 0))
 
-            from collections import Counter
-            labels = []
-            for doc in all_docs:
-                tags = doc.get(ArticleFields.TAGS, [])
-                if tags and isinstance(tags, list) and tags[0]:
-                    labels.append(tags[0])
+            seen: dict[str, int] = {}
+            counter: dict[str, int] = {}
+            for r in order_results:
+                cat = r.get("category", "")
+                if not cat:
+                    continue
+                if cat not in seen:
+                    seen[cat] = len(seen)
+                counter[cat] = counter.get(cat, 0) + 1
 
-            counter = Counter(labels)
+            sorted_labels = sorted(seen.keys(), key=lambda x: seen[x])
 
-            # 清空并重建 label_stats 表
             try:
                 conn.db.drop_table("label_stats")
             except Exception:
@@ -866,16 +873,19 @@ class ArticleRepository:
             schema = pa.schema([
                 pa.field("label", pa.string(), nullable=False),
                 pa.field("count", pa.int32(), nullable=False),
+                pa.field("order", pa.int32(), nullable=False),
             ])
             conn.db.create_table("label_stats", schema=schema)
 
             stats_table = conn.db.open_table("label_stats")
-            if counter:
-                stats_data = [{"label": k, "count": v} for k, v in counter.items()]
-                stats_table.add(stats_data)
+            if sorted_labels:
+                stats_table.add([
+                    {"label": label, "count": counter[label], "order": seen[label]}
+                    for label in sorted_labels
+                ])
 
-            logger.info(f"Rebuilt label_stats with {len(counter)} labels")
-            return dict(counter)
+            logger.info(f"Rebuilt label_stats with {len(sorted_labels)} labels")
+            return counter
         except Exception as e:
             logger.error(f"Failed to rebuild label_stats: {e}")
             return {}
