@@ -1,7 +1,7 @@
 from datetime import date
 from fastapi import APIRouter, Depends
 from app.utils.logging_manager import setup_logger
-from app.api.dependencies import verify_api_key
+from app.api.dependencies import verify_client_token
 from app.models.schemas import ResponseModel
 from app.api.logging_route import LoggingRoute
 from app.infrastructure.storage.sqlite.sql_db_service import db
@@ -13,7 +13,7 @@ router = APIRouter(prefix="/motto", route_class=LoggingRoute)
 
 
 @router.get("", response_model=ResponseModel)
-async def get_motto(valid_token: str = Depends(verify_api_key)):
+async def get_motto(auth: dict = Depends(verify_client_token)):
     today_str = date.today().strftime("%Y-%m-%d")
     success, data = await to_thread(db.get_today_motto, today_str)
     if (not success) and await to_thread(db.insert_motto_from_hitokoto, today_str):

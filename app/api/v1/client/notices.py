@@ -3,7 +3,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 
-from app.api.dependencies import optional_verify_api_key
+from app.api.dependencies import verify_client_token
 from app.api.logging_route import LoggingRoute
 from app.infrastructure.storage.lancedb.repository import get_article_repository
 from app.models.schemas import ResponseModel
@@ -19,7 +19,7 @@ async def get_latest_notices(
     label: Annotated[str | None, Query(description="可选的指定标签")] = None,
     page: int = Query(1, ge=1, description="返回的页码"),
     size: int = Query(20, ge=1, le=50, description="每页返回的数量，最大不超过50条"),
-    valid_token: str = Depends(optional_verify_api_key),
+    auth: dict = Depends(verify_client_token),
 ):
     """
     获取教务处最新资讯列表（支持分页）
@@ -43,7 +43,7 @@ async def get_latest_notices(
 # TODO: 获取所有标签的接口。
 @router.get("/labels", response_model=ResponseModel)
 async def get_notices_labels(
-    valid_token: str = Depends(optional_verify_api_key),
+    auth: dict = Depends(verify_client_token),
 ):
     """
     获取所有标签。

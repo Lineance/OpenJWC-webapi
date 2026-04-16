@@ -3,7 +3,7 @@ from asyncio import to_thread
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 
-from app.api.dependencies import verify_api_key
+from app.api.dependencies import verify_client_token
 from app.api.logging_route import LoggingRoute
 from app.application.submission.submission_service import (
     get_my_submissions,
@@ -23,7 +23,7 @@ router = APIRouter(prefix="/submissions", route_class=LoggingRoute)
 
 @router.post("")
 async def client_submission(
-    request: SubmissionRequest, valid_token: str = Depends(verify_api_key)
+    request: SubmissionRequest, auth: dict = Depends(verify_client_token)
 ):
     draft = SubmissionDraft(
         label=request.label,
@@ -36,7 +36,7 @@ async def client_submission(
             attachment_urls=request.content.attachment_urls,
         ),
     )
-    success, message = await to_thread(submit_submission, draft, valid_token)
+    success, message = await to_thread(submit_submission, draft, str(auth.get("user_id")))
     if success:
         return ResponseModel(msg=message, data={})
     else:
@@ -50,8 +50,8 @@ async def client_submission(
 
 
 @router.get("/my")
-async def process_query(valid_token: str = Depends(verify_api_key)):
-    notices = await to_thread(get_my_submissions, valid_token)
+async def process_query(auth: dict = Depends(verify_client_token)):
+    notices = await to_thread(get_my_submissions, str(auth.get("user_id")))
     return ResponseModel(
         msg="提交成功",
         data={"total": len(notices), "notices": notices},

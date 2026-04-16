@@ -3,7 +3,7 @@ from asyncio import to_thread
 
 from fastapi import APIRouter, Depends
 
-from app.api.dependencies import verify_api_key
+from app.api.dependencies import verify_client_token
 from app.api.logging_route import LoggingRoute
 from app.core.config import DATA_DIR
 from app.infrastructure.retrieval.engine import RetrievalEngine
@@ -30,7 +30,7 @@ router = APIRouter(prefix="/notices/search", route_class=LoggingRoute)
 @router.post("", response_model=ResponseModel)
 async def hybrid_search(
     request: SemanticSearchRequest,
-    valid_token: str = Depends(verify_api_key),
+    auth: dict = Depends(verify_client_token),
 ):
     """
     混合搜索资讯接口（向量+全文），强制鉴权，消耗嵌入模型额度
@@ -42,9 +42,8 @@ async def hybrid_search(
         带相似度分数和元信息的搜索结果
     """
     logger.info(
-        f"接受到混合搜索请求: {request.query[:50]}... Token: {valid_token[:8]}..."
-    ).
-
+        f"接受到混合搜索请求: {request.query[:50]}... User: {auth.get('username')}..."
+    )
     # 获取系统默认相似度阈值
     min_similarity = request.min_similarity
     if min_similarity is None:
