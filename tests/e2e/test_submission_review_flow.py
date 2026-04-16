@@ -25,6 +25,37 @@ async def _admin_login(
     return payload["data"]["token"]
 
 
+async def _register_and_login_client(
+    client: AsyncClient,
+    username: str,
+    password_hash: str,
+    device_id: str,
+) -> str:
+    register_resp = await client.post(
+        "/api/v2/client/auth/register",
+        json={
+            "username": username,
+            "password_hash": password_hash,
+            "email": f"{username}@example.com",
+        },
+    )
+    assert register_resp.status_code == 200
+    assert register_resp.json()["msg"] == "注册成功"
+
+    login_resp = await client.post(
+        "/api/v2/client/auth/login",
+        headers={"X-Device-ID": device_id},
+        json={
+            "account": username,
+            "password_hash": password_hash,
+            "device_name": "e2e-device",
+        },
+    )
+    assert login_resp.status_code == 200
+    assert login_resp.json()["msg"] == "登录成功"
+    return login_resp.json()["data"]["token"]
+
+
 @pytest.mark.asyncio
 async def test_submission_review_and_notice_visibility_flow(
     async_client: AsyncClient,
@@ -48,11 +79,17 @@ async def test_submission_review_and_notice_visibility_flow(
         json={"owner_name": "submitter", "max_devices": 1},
     )
     assert create_key_resp.status_code == 200
-    client_api_key = create_key_resp.json()["data"]["new_key"]
+    device_id = "device-e2e-submit-1"
+    client_token = await _register_and_login_client(
+        async_client,
+        username="e2e_client_submit",
+        password_hash="hash-e2e-submit",
+        device_id=device_id,
+    )
 
     client_headers = {
-        "Authorization": f"Bearer {client_api_key}",
-        "X-Device-ID": "device-e2e-submit-1",
+        "Authorization": f"Bearer {client_token}",
+        "X-Device-ID": device_id,
     }
 
     register_resp = await async_client.post(

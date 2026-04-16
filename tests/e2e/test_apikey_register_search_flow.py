@@ -10,50 +10,53 @@ from app.infrastructure.storage.lancedb.schema import (
 )
 
 
-async def _admin_login(
+async def _register_and_login_client(
     client: AsyncClient,
     username: str,
-    password: str,
+    password_hash: str,
+    device_id: str,
 ) -> str:
-    response = await client.post(
-        "/api/v1/admin/auth/login",
-        data={"username": username, "password": password},
+    register_resp = await client.post(
+        "/api/v2/client/auth/register",
+        json={
+            "username": username,
+            "password_hash": password_hash,
+            "email": f"{username}@example.com",
+        },
     )
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["msg"] == "登录成功"
-    return payload["data"]["token"]
+    assert register_resp.status_code == 200
+    assert register_resp.json()["msg"] == "注册成功"
+
+    login_resp = await client.post(
+        "/api/v2/client/auth/login",
+        headers={"X-Device-ID": device_id},
+        json={
+            "account": username,
+            "password_hash": password_hash,
+            "device_name": "e2e-device",
+        },
+    )
+    assert login_resp.status_code == 200
+    assert login_resp.json()["msg"] == "登录成功"
+    return login_resp.json()["data"]["token"]
 
 
 @pytest.mark.asyncio
 async def test_apikey_register_notices_and_semantic_search_flow(
     async_client: AsyncClient,
-    admin_credentials: dict[str, str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    admin_token = await _admin_login(
+    device_id = "device-e2e-1"
+    client_token = await _register_and_login_client(
         async_client,
-        admin_credentials["username"],
-        admin_credentials["password"],
+        username="e2e_client_search",
+        password_hash="hash-e2e-client",
+        device_id=device_id,
     )
-    admin_headers = {
-        "Authorization": f"Bearer {admin_token}",
-        "X-Client-Version": "e2e",
-        "X-Request-Id": "e2e-apikey",
-    }
-
-    create_key_resp = await async_client.post(
-        "/api/v1/admin/apikeys",
-        headers=admin_headers,
-        json={"owner_name": "smoke-user", "max_devices": 2},
-    )
-    assert create_key_resp.status_code == 200
-    client_api_key = create_key_resp.json()["data"]["new_key"]
-    assert client_api_key.startswith("sk-")
 
     client_headers = {
-        "Authorization": f"Bearer {client_api_key}",
-        "X-Device-ID": "device-e2e-1",
+        "Authorization": f"Bearer {client_token}",
+        "X-Device-ID": device_id,
     }
 
     register_resp = await async_client.post(
@@ -98,13 +101,7 @@ async def test_apikey_register_notices_and_semantic_search_flow(
     import app.api.v1.client.search as search_api
 
     class FakeRetrievalEngine:
-        def semantic_search(
-            self,
-            query: str,
-            field: str,
-            min_similarity: float,
-            top_k: int,
-        ) -> dict:
+        def search(self, query: str, mode: str, top_k: int) -> dict:
             return {
                 "results": [
                     {
@@ -116,7 +113,7 @@ async def test_apikey_register_notices_and_semantic_search_flow(
                             "is_page": True,
                         },
                         "tags": ["教务"],
-                        "_similarity": max(min_similarity, 0.92),
+                        "_similarity": 0.92,
                     }
                 ]
             }
