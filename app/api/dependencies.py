@@ -1,14 +1,16 @@
 from typing import Tuple
-from fastapi import Depends, HTTPException, Header, status
+
+import jwt
+from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import (
-    HTTPBearer,
     HTTPAuthorizationCredentials,
+    HTTPBearer,
     OAuth2PasswordBearer,
 )
+
+from app.core.security import ALGORITHM, SECRET_KEY
 from app.infrastructure.storage.sqlite.sql_db_service import db
 from app.utils.logging_manager import setup_logger
-import jwt
-from app.core.security import SECRET_KEY, ALGORITHM
 
 logger = setup_logger("auth_logs")
 
@@ -27,6 +29,13 @@ async def verify_api_key(
     如果通过，返回提取到的 token 字符串；
     如果失败，直接在这里抛出 HTTP 异常，请求会被立刻拦截。
     """
+    if not credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="未提供认证信息",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     token = credentials.credentials
     is_valid, error_msg = db.validate_and_use_key(token, x_device_id)
 
@@ -116,6 +125,13 @@ async def verify_api_key_and_device(
     x_device_id: str = Header(..., description="移动端设备的唯一标识 UUID"),
 ) -> Tuple[str, str]:
     """检查apikey和device是否存在绑定关系"""
+    if not credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="未提供认证信息",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     token = credentials.credentials
     is_valid, error_msg = db.validate_key_and_device(token, x_device_id)
 
@@ -134,6 +150,7 @@ async def verify_api_key_and_device(
 
 
 # ==================== v2 客户端账密鉴权 ====================
+
 
 async def verify_client_token(
     credentials: HTTPAuthorizationCredentials = Depends(security),
@@ -201,7 +218,11 @@ async def verify_client_token(
                     headers={"WWW-Authenticate": "Bearer"},
                 )
 
-        return {"username": user["username"], "user_id": user["id"], "device_uuid": token_device_uuid}
+        return {
+            "username": user["username"],
+            "user_id": user["id"],
+            "device_uuid": token_device_uuid,
+        }
     except jwt.ExpiredSignatureError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -214,4 +235,3 @@ async def verify_client_token(
             detail="无效的Token",
             headers={"WWW-Authenticate": "Bearer"},
         )
-

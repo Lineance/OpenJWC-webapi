@@ -53,6 +53,7 @@ from app.api.v1.admin import apikeys as admin_apikeys
 from app.api.v1.admin import auth as admin_auth
 from app.api.v1.admin import settings as admin_settings
 from app.api.v1.admin import submission as admin_submission
+from app.api.v1.client import chat as client_chat
 from app.api.v1.client import notices as client_notices
 from app.api.v1.client import register as client_register
 from app.api.v1.client import search as client_search
@@ -97,6 +98,7 @@ def isolated_db(tmp_path: Path, admin_credentials: dict[str, str]) -> None:
 def test_app(isolated_db: None) -> FastAPI:
     app = FastAPI(title="openjwc-e2e-tests")
     app.include_router(client_register.router, prefix="/api/v1/client")
+    app.include_router(client_chat.router, prefix="/api/v1/client")
     app.include_router(client_notices.router, prefix="/api/v1/client")
     app.include_router(client_search.router, prefix="/api/v1/client")
     app.include_router(client_submission.router, prefix="/api/v1/client")

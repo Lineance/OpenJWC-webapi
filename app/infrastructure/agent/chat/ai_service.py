@@ -82,7 +82,6 @@ class AIService:
 
 
 ai_service = AIService()
-client = ai_service.client
 
 
 @retry(
@@ -101,7 +100,7 @@ client = ai_service.client
 )
 async def call_llm_with_retry(messages: list, stream: bool):
     """封装调用 LLM 的底层逻辑，并附加重试机制"""
-    return await client.chat.completions.create(
+    return await ai_service.client.chat.completions.create(
         model="deepseek-chat", messages=messages, stream=stream
     )
 
