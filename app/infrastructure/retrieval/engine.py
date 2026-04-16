@@ -133,6 +133,7 @@ class RetrievalEngine:
 
     def _vector_search(self, query_obj: ArticleQuery) -> list[dict[str, Any]]:
         """向量搜索"""
+
         # 生成查询向量
         vector: list[float] | tuple[list[float], list[float]]
         if query_obj.vector_query:
@@ -161,12 +162,13 @@ class RetrievalEngine:
         if isinstance(vector, tuple):
             vector = vector[0]  # 取标题向量
 
-        return self._store.vector_search(
+        results = self._store.vector_search(
             query_vector=vector,
             vector_field=query_obj.vector_field,
             limit=query_obj.limit * 3,  # 获取更多结果用于后续处理
             where=query_obj.build_where_clause(),
         )
+        return results
 
     def _fulltext_search(self, query_obj: ArticleQuery) -> list[dict[str, Any]]:
         """全文搜索"""
@@ -222,19 +224,8 @@ class RetrievalEngine:
 
         results = self._vector_search(query_obj)
 
-        # 计算相似度分数
-        for result in results:
-            if f"{field}_embedding" in result:
-                query_vector = self._embedder.embed_query(query, field=field)
-                if isinstance(query_vector, tuple):
-                    query_vector = query_vector[0] if field == "title" else query_vector[1]
-
-                doc_vector = result[f"{field}_embedding"]
-                similarity = self._embedder.cosine_similarity(query_vector, doc_vector)
-                result["_similarity"] = similarity
-
         # 按相似度排序
-        results.sort(key=lambda x: x.get("_similarity", 0), reverse=True)
+        results.sort(key=lambda x: x.get("_score", 0), reverse=True)
 
         return {
             "query": query,
