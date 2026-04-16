@@ -28,12 +28,12 @@ router = APIRouter(prefix="/notices/search", route_class=LoggingRoute)
 
 
 @router.post("", response_model=ResponseModel)
-async def semantic_search(
+async def hybrid_search(
     request: SemanticSearchRequest,
     valid_token: str = Depends(verify_api_key),
 ):
     """
-    语义搜索资讯接口（强制鉴权，消耗嵌入模型额度）
+    混合搜索资讯接口（向量+全文），强制鉴权，消耗嵌入模型额度
 
     Args:
         request: 搜索请求，包含查询文本、返回数量上限、最低相似度阈值
@@ -42,8 +42,8 @@ async def semantic_search(
         带相似度分数和元信息的搜索结果
     """
     logger.info(
-        f"接受到语义搜索请求: {request.query[:50]}... Token: {valid_token[:8]}..."
-    )
+        f"接受到混合搜索请求: {request.query[:50]}... Token: {valid_token[:8]}..."
+    ).
 
     # 获取系统默认相似度阈值
     min_similarity = request.min_similarity
@@ -53,18 +53,17 @@ async def semantic_search(
     # 限制 top_k 范围
     top_k = max(1, min(request.top_k, 20))
 
-    # 执行语义搜索
+    # 执行混合搜索
     search_payload = await to_thread(
-        _get_retrieval_engine().semantic_search,
+        _get_retrieval_engine().search,
         request.query,
-        "content",
-        min_similarity,
+        "hybrid",
         top_k,
     )
 
     final_results = []
     for item in search_payload.get("results", []):
-        similarity = float(item.get("_similarity") or item.get("_final_score") or 0.0)
+        similarity = float(item.get("_similarity") or item.get("_score") or 0.0)
         if similarity < min_similarity:
             continue
 
@@ -92,7 +91,7 @@ async def semantic_search(
             }
         )
 
-    logger.info(f"语义搜索完成，返回 {len(final_results)} 条结果")
+    logger.info(f"混合搜索完成，返回 {len(final_results)} 条结果")
 
     return ResponseModel(
         msg="搜索成功",
