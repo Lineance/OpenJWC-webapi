@@ -891,34 +891,70 @@ class ArticleRepository:
             return {}
 
     def _update_label_stats_for_article(self, tags: list | None) -> None:
-        """Update label_stats when an article is added. Increments count for the label."""
+        """Update label_stats when an article is added. Reorders all labels based on article_order."""
         if not tags:
             return
         label = tags[0] if tags else None
         if not label:
             return
+        
         try:
             conn = get_connection()
-            stats_table = conn.db.open_table("label_stats")
-        except Exception:
-            # 表不存在，跳过增量更新，依赖 rebuild_label_stats 统一重建
-            return
-
-        try:
-            # 检查 label 是否存在
-            existing = stats_table.search().where(f"label = '{label}'").limit(1).to_list()
-            if existing:
-                # 更新 count
-                old_count = existing[0].get("count", 0)
-                # 删除旧记录
-                stats_table.delete(f"label = '{label}'")
-                # 添加新记录
-                stats_table.add([{"label": label, "count": old_count + 1}])
-            else:
-                # 新增 label
-                stats_table.add([{"label": label, "count": 1}])
+            
+            # 获取 article_order 表中的所有记录
+            order_table = conn.db.open_table(ARTICLE_ORDER_TABLE_NAME)
+            total = order_table.count_rows()
+            if total == 0:
+                return
+                
+            order_results = order_table.search().limit(max(total, 1000)).to_list()
+            order_results.sort(key=lambda r: r.get("ordinal", 0))
+            
+            # 计算每个 label 的 count 和第一次出现的顺序
+            seen: dict[str, int] = {}
+            counter: dict[str, int] = {}
+            for r in order_results:
+                cat = r.get("category", "")
+                if not cat:
+                    continue
+                if cat not in seen:
+                    seen[cat] = len(seen)
+                counter[cat] = counter.get(cat, 0) + 1
+            
+            # 按第一次出现的顺序排序 labels
+            sorted_labels = sorted(seen.keys(), key=lambda x: seen[x])
+            
+            # 获取或创建 label_stats 表
+            try:
+                stats_table = conn.db.open_table("label_stats")
+            except Exception:
+                # 表不存在，创建新表
+                import pyarrow as pa
+                schema = pa.schema([
+                    pa.field("label", pa.string(), nullable=False),
+                    pa.field("count", pa.int32(), nullable=False),
+                    pa.field("order", pa.int32(), nullable=False),
+                ])
+                conn.db.create_table("label_stats", schema=schema)
+                stats_table = conn.db.open_table("label_stats")
+            
+            # 删除所有现有记录
+            try:
+                stats_table.delete("1 = 1")  # 删除所有记录
+            except Exception:
+                pass
+            
+            # 添加更新后的记录
+            if sorted_labels:
+                stats_table.add([
+                    {"label": label, "count": counter[label], "order": seen[label]}
+                    for label in sorted_labels
+                ])
+                
+            logger.debug(f"Updated label_stats with {len(sorted_labels)} labels")
+            
         except Exception as e:
-            logger.warning(f"Failed to update label_stats for '{label}': {e}")
+            logger.warning(f"Failed to update label_stats: {e}")
 
     def get_notice_info(self, news_id: str) -> dict[str, Any] | None:
         """Return lightweight notice info by ID for admin checks."""
