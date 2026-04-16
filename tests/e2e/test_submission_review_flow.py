@@ -30,7 +30,13 @@ async def _register_and_login_client(
     username: str,
     password_hash: str,
     device_id: str,
+    admin_token: str | None = None,
 ) -> str:
+    """注册并登录客户端用户（需要管理员审核）
+
+    如果提供了admin_token，会自动进行管理员审核流程
+    """
+    # 提交注册申请
     register_resp = await client.post(
         "/api/v2/client/auth/register",
         json={
@@ -40,8 +46,35 @@ async def _register_and_login_client(
         },
     )
     assert register_resp.status_code == 200
-    assert register_resp.json()["msg"] == "注册成功"
+    assert "等待管理员审核" in register_resp.json()["msg"]
 
+    # 如果提供了管理员token，进行审核
+    if admin_token:
+        # 获取待审核的注册请求
+        list_resp = await client.get(
+            "/api/v2/admin/user-registrations",
+            headers={"Authorization": f"Bearer {admin_token}"},
+            params={"status": "pending", "page": 1, "size": 10},
+        )
+        assert list_resp.status_code == 200
+
+        # 找到对应的注册请求
+        registration = None
+        for user in list_resp.json()["data"]["users"]:
+            if user["username"] == username:
+                registration = user
+                break
+        assert registration is not None
+
+        # 批准注册申请
+        approve_resp = await client.post(
+            f"/api/v2/admin/user-registrations/{registration['id']}/review",
+            headers={"Authorization": f"Bearer {admin_token}"},
+            json={"action": "approved", "review": "E2E测试自动批准"},
+        )
+        assert approve_resp.status_code == 200
+
+    # 登录
     login_resp = await client.post(
         "/api/v2/client/auth/login",
         headers={"X-Device-ID": device_id},
@@ -85,6 +118,7 @@ async def test_submission_review_and_notice_visibility_flow(
         username="e2e_client_submit",
         password_hash="hash-e2e-submit",
         device_id=device_id,
+        admin_token=admin_token,
     )
 
     client_headers = {

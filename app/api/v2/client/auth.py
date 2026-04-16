@@ -17,19 +17,32 @@ async def register(
 ):
     """注册账号"""
     try:
-        db.create_user(
-            username=body.username,
-            email=body.email,
-            password_hash=body.password_hash,
+        from app.core.security import get_password_hash
+        from app.infrastructure.storage.sqlite.user_registration_repository import (
+            UserRegistrationRepository,
         )
+
+        repo = UserRegistrationRepository(db)
+        hashed = get_password_hash(body.password_hash)
+
+        # 检查用户名是否已在注册表中存在
+        if repo.get_by_username(body.username):
+            raise ValueError("用户名已存在")
+
+        # 检查邮箱是否已在注册表中存在
+        if repo.get_by_email(body.email):
+            raise ValueError("邮箱已被注册")
+
+        # 创建注册记录
+        repo.create(body.username, body.email, hashed)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=str(e),
         )
 
-    logger.info(f"用户注册成功: {body.username}")
-    return V2Response(msg="注册成功", data={})
+    logger.info(f"用户注册申请提交成功: {body.username}")
+    return V2Response(msg="注册申请已提交，等待管理员审核", data={})
 
 
 @router.post("/login", response_model=V2Response)
