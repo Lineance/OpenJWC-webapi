@@ -23,7 +23,7 @@ from app.infrastructure.storage.lancedb import (
     init_database,
 )
 
-from .dedup import DuplicateDetector, RepositoryDedup
+from .dedup import DeduplicationService
 from .embedder_provider import EmbeddingClient, get_embedder
 from .normalizers import normalize_content, normalize_datetime, normalize_markdown
 from .tag_matcher import TagMatcher, get_tag_matcher
@@ -45,7 +45,7 @@ class ProcessResult:
     Attributes:
         news_id: 新闻 ID
         url: URL
-        status: 状态 (success, invalid, duplicate, error)
+        status: 状态 (success, upsert, invalid, duplicate, error)
         message: 附加信息
     """
 
@@ -63,6 +63,7 @@ class PipelineResult:
     Attributes:
         total: 总记录数
         success: 成功数
+        upsert: 更新数
         invalid: 验证失败数
         duplicate: 重复数
         error: 错误数
@@ -72,6 +73,7 @@ class PipelineResult:
 
     total: int = 0
     success: int = 0
+    upsert: int = 0
     invalid: int = 0
     duplicate: int = 0
     error: int = 0
@@ -85,6 +87,8 @@ class PipelineResult:
 
         if result.status == "success":
             self.success += 1
+        elif result.status == "upsert":
+            self.upsert += 1
         elif result.status == "invalid":
             self.invalid += 1
         elif result.status == "duplicate":
@@ -96,7 +100,8 @@ class PipelineResult:
         """生成摘要"""
         return (
             f"Pipeline result: total={self.total}, success={self.success}, "
-            f"invalid={self.invalid}, duplicate={self.duplicate}, error={self.error}, "
+            f"upsert={self.upsert}, invalid={self.invalid}, "
+            f"duplicate={self.duplicate}, error={self.error}, "
             f"elapsed={self.elapsed_seconds:.2f}s"
         )
 
@@ -157,8 +162,7 @@ class IngestionPipeline:
         self._embedder = embedder or get_embedder()
         self._validator = validator or DocumentValidator()
         self._tag_matcher = tag_matcher or get_tag_matcher()
-        self._dedup = RepositoryDedup(self._repository)
-        self._detector = DuplicateDetector()
+        self._dedup = DeduplicationService(self._repository)
 
         self._skip_validation = skip_validation
         self._skip_dedup = skip_dedup
@@ -200,25 +204,36 @@ class IngestionPipeline:
             normalized = self._normalize(raw_data)
 
             # 3. 去重检查
-            if not self._skip_dedup and self._is_duplicate(normalized):
-                return ProcessResult(
-                    news_id=news_id,
-                    url=url,
-                    status="duplicate",
-                    message="Document already exists",
-                )
+            is_upsert = False
+            if not self._skip_dedup:
+                dedup_result = self._dedup.dedup([normalized])
+                if dedup_result.duplicate_docs:
+                    return ProcessResult(
+                        news_id=news_id,
+                        url=url,
+                        status="duplicate",
+                        message="Document already exists",
+                    )
+                if dedup_result.upsert_docs:
+                    is_upsert = True
 
             # 4. 向量化
             if not self._skip_embedding:
                 normalized = self._embed(normalized)
 
             # 5. 写入
-            success = self._write(normalized)
+            if is_upsert:
+                success = self._repository.upsert(normalized)
+                status = "upsert"
+            else:
+                success = self._repository.add_one(normalized)
+                status = "success"
+
             if success:
                 return ProcessResult(
                     news_id=news_id,
                     url=url,
-                    status="success",
+                    status=status,
                     message="",
                 )
             else:
@@ -285,25 +300,24 @@ class IngestionPipeline:
         # 2. 标准化
         normalized_docs = [self._normalize(doc) for doc in valid_docs]
 
-        # 3. 去重
+        # 3. 去重（三岔分类）
+        upsert_docs: list[dict[str, Any]] = []
         if not self._skip_dedup:
-            # 批量去重
-            unique_docs, dup_docs = self._detector.find_duplicates(normalized_docs)
-
-            # 数据库去重
-            new_docs, existing_docs = self._dedup.filter_new_documents(unique_docs)
+            dedup_result = self._dedup.dedup(normalized_docs)
 
             # 记录重复
-            for doc in dup_docs + existing_docs:
+            for doc in dedup_result.duplicate_docs:
                 result.add_result(
                     ProcessResult(
-                        news_id=doc.get("news_id"),
-                        url=doc.get("url"),
+                        news_id=doc.get(ArticleFields.NEWS_ID),
+                        url=doc.get(ArticleFields.URL),
                         status="duplicate",
                         message="Document already exists",
                     )
                 )
-            docs_to_process = new_docs
+
+            upsert_docs = dedup_result.upsert_docs
+            docs_to_process = dedup_result.new_docs + upsert_docs
         else:
             docs_to_process = normalized_docs
 
@@ -321,24 +335,56 @@ class IngestionPipeline:
         if docs_to_process:
             logger.info(f"Starting write for {len(docs_to_process)} documents...")
             try:
-                self._repository.add(docs_to_process)
-                logger.info(f"Write completed for {len(docs_to_process)} documents")
-                for doc in docs_to_process:
-                    result.add_result(
-                        ProcessResult(
-                            news_id=doc.get(ArticleFields.NEWS_ID),
-                            url=doc.get(ArticleFields.URL),
-                            status="success",
-                            message="",
+                if not self._skip_dedup:
+                    new_docs_write = [
+                        d for d in docs_to_process
+                        if d not in upsert_docs
+                    ]
+                    upsert_docs_write = upsert_docs
+
+                    if new_docs_write:
+                        self._repository.add(new_docs_write)
+                        for doc in new_docs_write:
+                            result.add_result(
+                                ProcessResult(
+                                    news_id=doc.get(ArticleFields.NEWS_ID),
+                                    url=doc.get(ArticleFields.URL),
+                                    status="success",
+                                    message="",
+                                )
+                            )
+
+                    if upsert_docs_write:
+                        self._repository.upsert_batch(upsert_docs_write)
+                        for doc in upsert_docs_write:
+                            result.add_result(
+                                ProcessResult(
+                                    news_id=doc.get(ArticleFields.NEWS_ID),
+                                    url=doc.get(ArticleFields.URL),
+                                    status="upsert",
+                                    message="",
+                                )
+                            )
+                else:
+                    self._repository.add(docs_to_process)
+                    for doc in docs_to_process:
+                        result.add_result(
+                            ProcessResult(
+                                news_id=doc.get(ArticleFields.NEWS_ID),
+                                url=doc.get(ArticleFields.URL),
+                                status="success",
+                                message="",
+                            )
                         )
-                    )
+
+                logger.info(f"Write completed for {len(docs_to_process)} documents")
             except Exception as e:
                 logger.error(f"Batch write failed: {e}")
                 for doc in docs_to_process:
                     result.add_result(
                         ProcessResult(
-                            news_id=doc.get("news_id"),
-                            url=doc.get("url"),
+                            news_id=doc.get(ArticleFields.NEWS_ID),
+                            url=doc.get(ArticleFields.URL),
                             status="error",
                             message=str(e),
                         )
@@ -429,15 +475,6 @@ class IngestionPipeline:
             result[ArticleFields.METADATA] = None
 
         return result
-
-    def _is_duplicate(self, data: dict[str, Any]) -> bool:
-        """检查是否重复"""
-        news_id = data.get(ArticleFields.NEWS_ID)
-        if news_id and self._dedup.exists_by_id(news_id):
-            return True
-
-        url = data.get(ArticleFields.URL)
-        return bool(url and self._dedup.exists_by_url(url))
 
     def _embed(self, data: dict[str, Any]) -> dict[str, Any]:
         """生成向量嵌入"""

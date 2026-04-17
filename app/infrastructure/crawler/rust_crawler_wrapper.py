@@ -34,9 +34,7 @@ def sync_search_index():
         article_repo.rebuild_label_stats()
         conn._tables.pop("article_order", None)
         conn._tables.pop("label_stats", None)
-        logger.info(
-            f"LanceDB 检索索引同步完成！total={result.total}, success={result.success}, duplicate={result.duplicate}, invalid={result.invalid}, error={result.error}"
-        )
+        logger.info(f"LanceDB 检索索引同步完成！{result.summary()}")
 
     except Exception as e:
         logger.exception(f"LanceDB 检索索引同步失败: {e}")

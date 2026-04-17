@@ -1,51 +1,34 @@
 """
 Deduplication - URL 和内容去重检测
 
-提供基于 URL 哈希和内容 SimHash 的去重功能。
+提供基于 URL 哈希和内容 SimHash 的去重工具函数和统一去重服务。
 
 Responsibilities:
-    - URL 哈希去重
+    - URL 规范化
+    - URL 哈希计算
     - SimHash 内容相似度检测
-    - 与 LanceDB 集成的重复检查
+    - 三岔分类去重服务（NEW / UPSERT / DUPLICATE）
 """
 
 import hashlib
 import logging
 import re
-from typing import Any, Protocol
+from dataclasses import dataclass, field
+from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 # =============================================================================
 # 配置
 # =============================================================================
 
-# SimHash 配置
 SIMHASH_BITS = 64
-SIMHASH_DISTANCE_THRESHOLD = 3  # 汉明距离阈值，小于此值视为重复
-
+SIMHASH_DISTANCE_THRESHOLD = 3
+DEFAULT_SIMHASH_ENABLED = False
 
 # =============================================================================
-# URL 哈希
+# URL 规范化与哈希
 # =============================================================================
-
-
-def url_hash(url: str) -> str:
-    """
-    计算 URL 的哈希值
-
-    Args:
-        url: URL 字符串
-
-    Returns:
-        MD5 哈希值 (32 位十六进制字符串)
-    """
-    if not url:
-        return ""
-    # 规范化 URL
-    normalized = normalize_url(url)
-    return hashlib.md5(normalized.encode("utf-8")).hexdigest()  # noqa: S324
 
 
 def normalize_url(url: str) -> str:
@@ -65,19 +48,33 @@ def normalize_url(url: str) -> str:
     if not url:
         return ""
 
-    # 转小写
     url = url.lower().strip()
-
-    # 移除末尾斜杠
     url = url.rstrip("/")
-
-    # 移除常见跟踪参数
     url = re.sub(r"[?&](utm_\w+|ref|source|from)=[^&]*", "", url)
-
-    # 移除空的查询字符串
     url = re.sub(r"\?$", "", url)
 
     return url
+
+
+def url_hash(url: str) -> str:
+    """
+    计算 URL 的哈希值（规范化后 MD5 前16位）
+
+    Args:
+        url: URL 字符串
+
+    Returns:
+        MD5 哈希值 (32 位十六进制字符串)
+    """
+    if not url:
+        return ""
+    normalized = normalize_url(url)
+    return hashlib.md5(normalized.encode("utf-8")).hexdigest()  # noqa: S324
+
+
+def compute_url_hash(url: str) -> str:
+    """计算 URL 哈希（规范化后）"""
+    return url_hash(url)
 
 
 # =============================================================================
@@ -115,27 +112,19 @@ class SimHash:
         if not text:
             return 0
 
-        # 分词 (简单按空白和标点分割)
         tokens = self._tokenize(text)
         if not tokens:
             return 0
 
-        # 初始化向量
         v = [0] * self._bits
-
-        # 计算每个 token 的贡献
         for token in tokens:
-            # 计算 token 的哈希
             token_hash = self._hash_token(token)
-
-            # 更新向量
             for i in range(self._bits):
                 if token_hash & (1 << i):
                     v[i] += 1
                 else:
                     v[i] -= 1
 
-        # 生成 SimHash
         fingerprint = 0
         for i in range(self._bits):
             if v[i] > 0:
@@ -144,32 +133,13 @@ class SimHash:
         return fingerprint
 
     def _tokenize(self, text: str) -> list[str]:
-        """
-        简单分词
-
-        Args:
-            text: 输入文本
-
-        Returns:
-            token 列表
-        """
-        # 移除标点符号
+        """简单分词"""
         text = re.sub(r"[^\w\s]", " ", text)
-        # 按空白分割
         tokens = text.split()
-        # 过滤短 token
         return [t for t in tokens if len(t) >= 2]
 
     def _hash_token(self, token: str) -> int:
-        """
-        计算单个 token 的哈希
-
-        Args:
-            token: 单个词语
-
-        Returns:
-            哈希值
-        """
+        """计算单个 token 的哈希"""
         h = hashlib.md5(token.encode("utf-8")).hexdigest()  # noqa: S324
         raw_value = int(h, 16)
         modulus = 2 ** int(self._bits)
@@ -177,16 +147,7 @@ class SimHash:
 
     @staticmethod
     def hamming_distance(hash1: int, hash2: int) -> int:
-        """
-        计算两个 SimHash 的汉明距离
-
-        Args:
-            hash1: 第一个 SimHash
-            hash2: 第二个 SimHash
-
-        Returns:
-            汉明距离
-        """
+        """计算两个 SimHash 的汉明距离"""
         x = hash1 ^ hash2
         distance = 0
         while x:
@@ -200,245 +161,8 @@ class SimHash:
         hash2: int,
         threshold: int = SIMHASH_DISTANCE_THRESHOLD,
     ) -> bool:
-        """
-        判断两个 SimHash 是否相似
-
-        Args:
-            hash1: 第一个 SimHash
-            hash2: 第二个 SimHash
-            threshold: 汉明距离阈值
-
-        Returns:
-            是否相似
-        """
+        """判断两个 SimHash 是否相似"""
         return self.hamming_distance(hash1, hash2) <= threshold
-
-
-# =============================================================================
-# 去重检测器
-# =============================================================================
-
-
-class DuplicateDetector:
-    """
-    去重检测器
-
-    整合 URL 哈希和 SimHash 两种去重方法
-
-    Usage:
-        >>> detector = DuplicateDetector()
-        >>> detector.is_url_duplicate("https://example.com/news/1", existing_urls)
-        >>> detector.is_content_duplicate("新闻内容...", existing_hashes)
-    """
-
-    def __init__(
-        self,
-        simhash_bits: int = SIMHASH_BITS,
-        similarity_threshold: int = SIMHASH_DISTANCE_THRESHOLD,
-    ) -> None:
-        """
-        初始化去重检测器
-
-        Args:
-            simhash_bits: SimHash 位数
-            similarity_threshold: 相似度阈值
-        """
-        self._simhash = SimHash(bits=simhash_bits)
-        self._threshold = similarity_threshold
-
-    def compute_url_hash(self, url: str) -> str:
-        """计算 URL 哈希"""
-        return url_hash(url)
-
-    def compute_content_hash(self, content: str) -> int:
-        """计算内容 SimHash"""
-        return self._simhash.compute(content)
-
-    def is_url_duplicate(self, url: str, existing_hashes: set[str]) -> bool:
-        """
-        检查 URL 是否重复
-
-        Args:
-            url: 待检查的 URL
-            existing_hashes: 已有 URL 哈希集合
-
-        Returns:
-            是否重复
-        """
-        h = self.compute_url_hash(url)
-        return h in existing_hashes
-
-    def is_content_duplicate(
-        self,
-        content: str,
-        existing_hashes: list[int],
-    ) -> bool:
-        """
-        检查内容是否与已有内容相似
-
-        Args:
-            content: 待检查的内容
-            existing_hashes: 已有内容 SimHash 列表
-
-        Returns:
-            是否存在相似内容
-        """
-        if not existing_hashes:
-            return False
-
-        content_hash = self.compute_content_hash(content)
-
-        for existing in existing_hashes:
-            if self._simhash.is_similar(content_hash, existing, self._threshold):
-                return True
-
-        return False
-
-    def find_duplicates(
-        self,
-        documents: list[dict[str, Any]],
-        url_key: str = "url",
-        content_key: str = "content_text",
-    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-        """
-        从文档列表中找出重复和非重复文档
-
-        Args:
-            documents: 文档列表
-            url_key: URL 字段名
-            content_key: 内容字段名
-
-        Returns:
-            (唯一文档列表, 重复文档列表)
-        """
-        unique = []
-        duplicates = []
-        seen_urls: set[str] = set()
-        seen_hashes: list[int] = []
-
-        for doc in documents:
-            url = doc.get(url_key, "")
-            content = doc.get(content_key, "")
-
-            # 检查 URL 重复
-            url_h = self.compute_url_hash(url)
-            if url_h in seen_urls:
-                duplicates.append(doc)
-                continue
-
-            # 检查内容重复
-            if content and self.is_content_duplicate(content, seen_hashes):
-                duplicates.append(doc)
-                continue
-
-            # 标记为已见
-            seen_urls.add(url_h)
-            if content:
-                seen_hashes.append(self.compute_content_hash(content))
-
-            unique.append(doc)
-
-        logger.info(f"Dedup result: {len(unique)} unique, {len(duplicates)} duplicates")
-        return unique, duplicates
-
-
-# =============================================================================
-# 与 Repository 集成
-# =============================================================================
-
-
-class _RepositoryLike(Protocol):
-    def exists_by_url(self, url: str) -> bool: ...
-
-    def exists(self, news_id: str) -> bool: ...
-
-
-class RepositoryDedup:
-    """
-    与 LanceDB Repository 集成的去重检测器
-
-    在写入前检查数据库中是否已存在相同记录
-    """
-
-    def __init__(self, repository: _RepositoryLike | None = None) -> None:
-        """
-        初始化
-
-        Args:
-            repository: ArticleRepository 实例
-        """
-        self._repository = repository
-        self._detector = DuplicateDetector()
-
-    def set_repository(self, repository: _RepositoryLike | None) -> None:
-        """设置 Repository"""
-        self._repository = repository
-
-    def exists_by_url(self, url: str) -> bool:
-        """
-        检查 URL 是否已存在于数据库
-
-        Args:
-            url: URL 字符串
-
-        Returns:
-            是否存在
-        """
-        if not self._repository:
-            return False
-        return bool(self._repository.exists_by_url(url))
-
-    def exists_by_id(self, news_id: str) -> bool:
-        """
-        检查 news_id 是否已存在于数据库
-
-        Args:
-            news_id: 新闻 ID
-
-        Returns:
-            是否存在
-        """
-        if not self._repository:
-            return False
-        return bool(self._repository.exists(news_id))
-
-    def filter_new_documents(
-        self,
-        documents: list[dict[str, Any]],
-        id_key: str = "news_id",
-    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-        """
-        过滤出新文档和已存在的文档
-
-        Args:
-            documents: 文档列表
-            id_key: ID 字段名
-
-        Returns:
-            (新文档列表, 已存在文档列表)
-        """
-        new_docs = []
-        existing_docs = []
-
-        for doc in documents:
-            doc_id = doc.get(id_key)
-            if doc_id and self.exists_by_id(doc_id):
-                existing_docs.append(doc)
-            else:
-                new_docs.append(doc)
-
-        logger.info(f"Filter result: {len(new_docs)} new, {len(existing_docs)} existing")
-        return new_docs, existing_docs
-
-
-# =============================================================================
-# 便捷函数
-# =============================================================================
-
-
-def compute_url_hash(url: str) -> str:
-    """计算 URL 哈希"""
-    return url_hash(url)
 
 
 def compute_simhash(content: str) -> int:
@@ -449,3 +173,238 @@ def compute_simhash(content: str) -> int:
 def is_similar(hash1: int, hash2: int, threshold: int = SIMHASH_DISTANCE_THRESHOLD) -> bool:
     """判断两个 SimHash 是否相似"""
     return SimHash.hamming_distance(hash1, hash2) <= threshold
+
+
+# =============================================================================
+# 统一去重服务
+# =============================================================================
+
+
+@dataclass
+class DedupResult:
+    """
+    三岔去重结果
+
+    Attributes:
+        new_docs: news_id 不存在 → INSERT
+        upsert_docs: news_id+url 匹配但 publish_date 不同 → UPDATE
+        duplicate_docs: news_id+url+publish_date 全匹配 → 跳过
+    """
+
+    new_docs: list[dict[str, Any]] = field(default_factory=list)
+    upsert_docs: list[dict[str, Any]] = field(default_factory=list)
+    duplicate_docs: list[dict[str, Any]] = field(default_factory=list)
+
+    def is_empty(self) -> bool:
+        return not (self.new_docs or self.upsert_docs or self.duplicate_docs)
+
+
+class DeduplicationService:
+    """
+    统一去重服务
+
+    Features:
+        - 单次调用完成全部去重逻辑
+        - 批量 DB 查询（无逐条查询）
+        - 三岔分类：NEW / UPSERT / DUPLICATE
+        - 可选 SimHash（默认关闭）
+
+    Usage:
+        >>> service = DeduplicationService(repository)
+        >>> result = service.dedup(documents)
+        >>> # result.new_docs → insert
+        >>> # result.upsert_docs → upsert
+        >>> # result.duplicate_docs → skip
+    """
+
+    def __init__(
+        self,
+        repository: Any,  # ArticleRepository
+        simhash_enabled: bool = DEFAULT_SIMHASH_ENABLED,
+        simhash_bits: int = SIMHASH_BITS,
+        simhash_threshold: int = SIMHASH_DISTANCE_THRESHOLD,
+    ) -> None:
+        self._repository = repository
+        self._simhash_enabled = simhash_enabled
+        self._simhash = SimHash(bits=simhash_bits) if simhash_enabled else None
+        self._simhash_threshold = simhash_threshold
+
+        self._news_id_key = "news_id"
+        self._url_key = "url"
+        self._publish_date_key = "publish_date"
+        self._content_key = "content_text"
+
+    def dedup(
+        self,
+        documents: list[dict[str, Any]],
+        news_id_key: str | None = None,
+        url_key: str | None = None,
+        publish_date_key: str | None = None,
+        content_key: str | None = None,
+    ) -> DedupResult:
+        """
+        三岔去重
+
+        Args:
+            documents: 文档列表（标准化后）
+            news_id_key: news_id 字段名
+            url_key: url 字段名
+            publish_date_key: publish_date 字段名
+            content_key: content_text 字段名
+
+        Returns:
+            DedupResult (new_docs, upsert_docs, duplicate_docs)
+        """
+        if news_id_key is not None:
+            self._news_id_key = news_id_key
+        if url_key is not None:
+            self._url_key = url_key
+        if publish_date_key is not None:
+            self._publish_date_key = publish_date_key
+        if content_key is not None:
+            self._content_key = content_key
+
+        if not documents:
+            return DedupResult()
+
+        batch_unique, batch_duplicates = self._in_batch_dedup(documents)
+
+        if not batch_unique:
+            return DedupResult(
+                new_docs=[], upsert_docs=[], duplicate_docs=batch_duplicates
+            )
+
+        new_docs, upsert_docs, db_duplicates = self._db_dedup_three_way(batch_unique)
+        all_duplicates = batch_duplicates + db_duplicates
+
+        logger.info(
+            f"Dedup result: new={len(new_docs)}, upsert={len(upsert_docs)}, "
+            f"duplicate={len(all_duplicates)}"
+        )
+
+        return DedupResult(
+            new_docs=new_docs,
+            upsert_docs=upsert_docs,
+            duplicate_docs=all_duplicates,
+        )
+
+    # -------------------------------------------------------------------------
+    # 批次内去重
+    # -------------------------------------------------------------------------
+
+    def _in_batch_dedup(
+        self,
+        documents: list[dict[str, Any]],
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+        """
+        批次内去重：URL hash + 可选 SimHash
+
+        Returns:
+            (unique_docs, duplicate_docs)
+        """
+        unique = []
+        duplicates = []
+        seen_url_hashes: set[str] = set()
+        seen_simhashes: list[int] = []
+
+        for doc in documents:
+            url = doc.get(self._url_key, "")
+            content = doc.get(self._content_key, "")
+
+            url_h = url_hash(url)
+            if url_h in seen_url_hashes:
+                duplicates.append(doc)
+                continue
+
+            if self._simhash_enabled and content:
+                content_h = self._simhash.compute(content)  # type: ignore
+                for existing_h in seen_simhashes:
+                    if self._simhash.is_similar(  # type: ignore
+                        content_h, existing_h, self._simhash_threshold
+                    ):
+                        duplicates.append(doc)
+                        break
+                else:
+                    seen_simhashes.append(content_h)
+
+            seen_url_hashes.add(url_h)
+            unique.append(doc)
+
+        return unique, duplicates
+
+    # -------------------------------------------------------------------------
+    # DB 三岔分类
+    # -------------------------------------------------------------------------
+
+    def _db_dedup_three_way(
+        self,
+        documents: list[dict[str, Any]],
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+        """
+        批量 DB 查询 + 三岔分类
+
+        - news_id 不存在 → NEW
+        - news_id 存在，normalize(url) 相同，publish_date 相同 → DUPLICATE
+        - news_id 存在，normalize(url) 相同，publish_date 不同 → UPSERT
+
+        Returns:
+            (new_docs, upsert_docs, duplicate_docs)
+        """
+        news_ids = [
+            doc.get(self._news_id_key)
+            for doc in documents
+            if doc.get(self._news_id_key)
+        ]
+
+        if not news_ids:
+            return documents, [], []
+
+        existing_records = self._repository.find_by_news_ids(news_ids)
+        existing_by_id: dict[str, dict[str, Any]] = {
+            rec[self._news_id_key]: rec for rec in existing_records
+        }
+
+        new_docs = []
+        upsert_docs = []
+        duplicate_docs = []
+
+        for doc in documents:
+            news_id = doc.get(self._news_id_key)
+            if not news_id:
+                new_docs.append(doc)
+                continue
+
+            existing = existing_by_id.get(news_id)
+            if existing is None:
+                new_docs.append(doc)
+                continue
+
+            incoming_url_norm = normalize_url(doc.get(self._url_key) or "")
+            existing_url_norm = normalize_url(existing.get(self._url_key) or "")
+
+            if incoming_url_norm != existing_url_norm:
+                new_docs.append(doc)
+                continue
+
+            dates_match = self._dates_match(
+                doc.get(self._publish_date_key),
+                existing.get(self._publish_date_key),
+            )
+
+            if dates_match:
+                duplicate_docs.append(doc)
+            else:
+                upsert_docs.append(doc)
+
+        return new_docs, upsert_docs, duplicate_docs
+
+    @staticmethod
+    def _dates_match(date1: Any, date2: Any) -> bool:
+        """比对两个日期是否相同（处理 None 和 datetime 对象）"""
+        if date1 is None and date2 is None:
+            return True
+        if date1 is None or date2 is None:
+            return False
+        dt1 = date1.isoformat() if hasattr(date1, "isoformat") else str(date1)
+        dt2 = date2.isoformat() if hasattr(date2, "isoformat") else str(date2)
+        return dt1 == dt2

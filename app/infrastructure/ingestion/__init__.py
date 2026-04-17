@@ -19,11 +19,13 @@ Usage:
 
 from .embedder.clouds_embedder import Embedder
 from .dedup import (
-    DuplicateDetector,
-    RepositoryDedup,
+    DeduplicationService,
+    DedupResult,
     compute_simhash,
     compute_url_hash,
     is_similar,
+    normalize_url,
+    url_hash,
 )
 from .embedder_provider import embed_content, embed_query, embed_title, get_embedder
 from .normalizers import (
@@ -92,8 +94,10 @@ __all__ = [
     "validate_document",
     "is_valid_document",
     # Dedup
-    "DuplicateDetector",
-    "RepositoryDedup",
+    "DeduplicationService",
+    "DedupResult",
+    "normalize_url",
+    "url_hash",
     "compute_url_hash",
     "compute_simhash",
     "is_similar",

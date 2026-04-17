@@ -1,6 +1,5 @@
 """Dedup 单元测试"""
 
-from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -201,209 +200,136 @@ class TestSimHash:
         assert sh.is_similar(hash1, hash2, threshold=3) is False
 
 
-class TestDuplicateDetector:
-    """DuplicateDetector 测试"""
+class TestDeduplicationService:
+    """DeduplicationService 测试"""
 
-    def test_detector_init(self) -> None:
-        """测试初始化"""
-        from app.infrastructure.ingestion.dedup import DuplicateDetector
+    def _make_mock_repo(self, existing_records: list[dict]) -> MagicMock:
+        """创建模拟 repository"""
+        mock_repo = MagicMock()
+        mock_repo.find_by_news_ids.return_value = existing_records
+        return mock_repo
 
-        detector = DuplicateDetector()
-        assert detector._simhash is not None
-        assert detector._threshold == 3
+    def test_dedup_all_new(self) -> None:
+        """测试全部是新文档"""
+        from app.infrastructure.ingestion.dedup import DeduplicationService
 
-    def test_detector_custom_threshold(self) -> None:
-        """测试自定义阈值"""
-        from app.infrastructure.ingestion.dedup import DuplicateDetector
+        mock_repo = self._make_mock_repo([])
+        service = DeduplicationService(mock_repo)
 
-        detector = DuplicateDetector(similarity_threshold=5)
-        assert detector._threshold == 5
-
-    def test_compute_url_hash(self) -> None:
-        """测试 URL 哈希计算"""
-        from app.infrastructure.ingestion.dedup import DuplicateDetector
-
-        detector = DuplicateDetector()
-        h = detector.compute_url_hash("https://example.com")
-        assert len(h) == 32
-
-    def test_compute_content_hash(self) -> None:
-        """测试内容哈希计算"""
-        from app.infrastructure.ingestion.dedup import DuplicateDetector
-
-        detector = DuplicateDetector()
-        h = detector.compute_content_hash("Test content")
-        assert isinstance(h, int)
-
-    def test_is_url_duplicate_true(self) -> None:
-        """测试 URL 重复"""
-        from app.infrastructure.ingestion.dedup import DuplicateDetector
-
-        detector = DuplicateDetector()
-        url = "https://example.com/article/1"
-        existing = {detector.compute_url_hash(url)}
-
-        assert detector.is_url_duplicate(url, existing) is True
-
-    def test_is_url_duplicate_false(self) -> None:
-        """测试 URL 不重复"""
-        from app.infrastructure.ingestion.dedup import DuplicateDetector
-
-        detector = DuplicateDetector()
-        existing = {"some_other_hash"}
-
-        assert detector.is_url_duplicate("https://example.com", existing) is False
-
-    def test_is_content_duplicate_empty_existing(self) -> None:
-        """测试空已有内容"""
-        from app.infrastructure.ingestion.dedup import DuplicateDetector
-
-        detector = DuplicateDetector()
-        result = detector.is_content_duplicate("content", [])
-        assert result is False
-
-    def test_is_content_duplicate_true(self) -> None:
-        """测试内容重复"""
-        from app.infrastructure.ingestion.dedup import DuplicateDetector
-
-        detector = DuplicateDetector()
-        content = "This is a test article about machine learning and AI"
-        # Create a very similar content
-        similar_content = "This is a test article about machine learning and AI technologies"
-
-        hash1 = detector.compute_content_hash(content)
-        hash2 = detector.compute_content_hash(similar_content)
-
-        # They should be similar or not depending on actual implementation
-        result = detector.is_content_duplicate(similar_content, [hash1])
-        # Just check it doesn't crash and returns bool
-        assert isinstance(result, bool)
-
-    def test_find_duplicates(self) -> None:
-        """测试批量去重"""
-        from app.infrastructure.ingestion.dedup import DuplicateDetector
-
-        detector = DuplicateDetector()
         docs = [
-            {"url": "https://example.com/1", "content_text": "Article about machine learning basics"},
-            {"url": "https://example.com/2", "content_text": "Cooking recipes for dinner"},
-            {"url": "https://example.com/1", "content_text": "Different content about sports"},  # URL duplicate
+            {"news_id": "1", "url": "https://example.com/1", "publish_date": "2024-01-01", "content_text": "Content 1"},
+            {"news_id": "2", "url": "https://example.com/2", "publish_date": "2024-01-02", "content_text": "Content 2"},
         ]
 
-        unique, duplicates = detector.find_duplicates(docs)
+        result = service.dedup(docs)
 
-        assert len(unique) == 2
-        assert len(duplicates) == 1
-        assert duplicates[0]["url"] == "https://example.com/1"
+        assert len(result.new_docs) == 2
+        assert len(result.upsert_docs) == 0
+        assert len(result.duplicate_docs) == 0
 
+    def test_dedup_exact_duplicate(self) -> None:
+        """测试完全重复（news_id + url + publish_date 相同）"""
+        from app.infrastructure.ingestion.dedup import DeduplicationService
 
-class TestRepositoryDedup:
-    """RepositoryDedup 测试"""
+        mock_repo = self._make_mock_repo([
+            {"news_id": "1", "url": "https://example.com/1", "publish_date": "2024-01-01"},
+        ])
+        service = DeduplicationService(mock_repo)
 
-    def test_repo_dedup_init(self) -> None:
-        """测试初始化"""
-        from app.infrastructure.ingestion.dedup import RepositoryDedup
-
-        dedup = RepositoryDedup()
-        assert dedup._repository is None
-        assert dedup._detector is not None
-
-    def test_repo_dedup_init_with_repo(self) -> None:
-        """测试带 repository 初始化"""
-        from app.infrastructure.ingestion.dedup import RepositoryDedup
-
-        mock_repo = MagicMock()
-        dedup = RepositoryDedup(repository=mock_repo)
-        assert dedup._repository is mock_repo
-
-    def test_set_repository(self) -> None:
-        """测试设置 repository"""
-        from app.infrastructure.ingestion.dedup import RepositoryDedup
-
-        dedup = RepositoryDedup()
-        mock_repo = MagicMock()
-        dedup.set_repository(mock_repo)
-        assert dedup._repository is mock_repo
-
-    def test_exists_by_url_no_repo(self) -> None:
-        """测试无 repository 时返回 False"""
-        from app.infrastructure.ingestion.dedup import RepositoryDedup
-
-        dedup = RepositoryDedup()
-        result = dedup.exists_by_url("https://example.com")
-        assert result is False
-
-    def test_exists_by_url_with_repo(self) -> None:
-        """测试有 repository 时查询"""
-        from app.infrastructure.ingestion.dedup import RepositoryDedup
-
-        mock_repo = MagicMock()
-        mock_repo.exists_by_url.return_value = True
-
-        dedup = RepositoryDedup(repository=mock_repo)
-        result = dedup.exists_by_url("https://example.com")
-
-        assert result is True
-        mock_repo.exists_by_url.assert_called_once_with("https://example.com")
-
-    def test_exists_by_id_no_repo(self) -> None:
-        """测试无 repository 时返回 False"""
-        from app.infrastructure.ingestion.dedup import RepositoryDedup
-
-        dedup = RepositoryDedup()
-        result = dedup.exists_by_id("news_123")
-        assert result is False
-
-    def test_exists_by_id_with_repo(self) -> None:
-        """测试有 repository 时查询"""
-        from app.infrastructure.ingestion.dedup import RepositoryDedup
-
-        mock_repo = MagicMock()
-        mock_repo.exists.return_value = True
-
-        dedup = RepositoryDedup(repository=mock_repo)
-        result = dedup.exists_by_id("news_123")
-
-        assert result is True
-        mock_repo.exists.assert_called_once_with("news_123")
-
-    def test_filter_new_documents_all_new(self) -> None:
-        """测试过滤全部是新文档"""
-        from app.infrastructure.ingestion.dedup import RepositoryDedup
-
-        mock_repo = MagicMock()
-        mock_repo.exists.return_value = False
-
-        dedup = RepositoryDedup(repository=mock_repo)
         docs = [
-            {"news_id": "1", "title": "Doc 1"},
-            {"news_id": "2", "title": "Doc 2"},
+            {"news_id": "1", "url": "https://example.com/1", "publish_date": "2024-01-01"},
         ]
 
-        new_docs, existing = dedup.filter_new_documents(docs)
+        result = service.dedup(docs)
 
-        assert len(new_docs) == 2
-        assert len(existing) == 0
+        assert len(result.new_docs) == 0
+        assert len(result.upsert_docs) == 0
+        assert len(result.duplicate_docs) == 1
 
-    def test_filter_new_documents_some_exist(self) -> None:
-        """测试过滤部分已存在"""
-        from app.infrastructure.ingestion.dedup import RepositoryDedup
+    def test_dedup_upsert_date_changed(self) -> None:
+        """测试 UPSERT（news_id + url 匹配但 publish_date 不同）"""
+        from app.infrastructure.ingestion.dedup import DeduplicationService
 
-        mock_repo = MagicMock()
-        mock_repo.exists.side_effect = [False, True]  # First exists, second doesn't
+        mock_repo = self._make_mock_repo([
+            {"news_id": "1", "url": "https://example.com/1", "publish_date": "2024-01-01"},
+        ])
+        service = DeduplicationService(mock_repo)
 
-        dedup = RepositoryDedup(repository=mock_repo)
         docs = [
-            {"news_id": "1", "title": "Doc 1"},
-            {"news_id": "2", "title": "Doc 2"},
+            {"news_id": "1", "url": "https://example.com/1", "publish_date": "2024-01-15"},
         ]
 
-        new_docs, existing = dedup.filter_new_documents(docs)
+        result = service.dedup(docs)
 
-        assert len(new_docs) == 1
-        assert len(existing) == 1
-        assert new_docs[0]["news_id"] == "1"
-        assert existing[0]["news_id"] == "2"
+        assert len(result.new_docs) == 0
+        assert len(result.upsert_docs) == 1
+        assert len(result.duplicate_docs) == 0
+
+    def test_dedup_url_normalization(self) -> None:
+        """测试 URL 规范化（带末尾斜杠 vs 无斜杠）"""
+        from app.infrastructure.ingestion.dedup import DeduplicationService
+
+        mock_repo = self._make_mock_repo([
+            {"news_id": "1", "url": "https://example.com/article/", "publish_date": "2024-01-01"},
+        ])
+        service = DeduplicationService(mock_repo)
+
+        docs = [
+            {"news_id": "1", "url": "https://example.com/article", "publish_date": "2024-01-01"},
+        ]
+
+        result = service.dedup(docs)
+
+        # 规范化后 URL 相同，日期也相同 -> duplicate
+        assert len(result.new_docs) == 0
+        assert len(result.upsert_docs) == 0
+        assert len(result.duplicate_docs) == 1
+
+    def test_dedup_batch_query(self) -> None:
+        """测试批量 DB 查询"""
+        from app.infrastructure.ingestion.dedup import DeduplicationService
+
+        mock_repo = self._make_mock_repo([])
+        service = DeduplicationService(mock_repo)
+
+        docs = [
+            {"news_id": "1", "url": "https://example.com/1", "publish_date": "2024-01-01"},
+            {"news_id": "2", "url": "https://example.com/2", "publish_date": "2024-01-02"},
+        ]
+
+        service.dedup(docs)
+
+        # 验证批量查询被调用
+        mock_repo.find_by_news_ids.assert_called_once_with(["1", "2"])
+
+    def test_dedup_empty_input(self) -> None:
+        """测试空输入"""
+        from app.infrastructure.ingestion.dedup import DeduplicationService
+
+        mock_repo = self._make_mock_repo([])
+        service = DeduplicationService(mock_repo)
+
+        result = service.dedup([])
+
+        assert result.is_empty()
+
+    def test_dedup_in_batch_duplicate(self) -> None:
+        """测试批次内 URL 重复"""
+        from app.infrastructure.ingestion.dedup import DeduplicationService
+
+        mock_repo = self._make_mock_repo([])
+        service = DeduplicationService(mock_repo)
+
+        docs = [
+            {"news_id": "1", "url": "https://example.com/1", "publish_date": "2024-01-01"},
+            {"news_id": "2", "url": "https://example.com/1", "publish_date": "2024-01-01"},
+        ]
+
+        result = service.dedup(docs)
+
+        # 第二个在批次内被检测为重复
+        assert len(result.new_docs) == 1
+        assert len(result.duplicate_docs) == 1
 
 
 class TestConvenienceFunctions:
