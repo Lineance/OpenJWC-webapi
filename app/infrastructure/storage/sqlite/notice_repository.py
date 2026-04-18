@@ -16,6 +16,17 @@ class NoticeRepository:
         self._db = db_service
 
     @staticmethod
+    def _normalize_notice_id(value: Any) -> str | None:
+        if value is None:
+            return None
+        text = str(value).strip()
+        if not text:
+            return None
+        if text.lower() in {"none", "null"}:
+            return None
+        return text
+
+    @staticmethod
     def _safe_date(value: Any) -> str:
         if value is None:
             return ""
@@ -44,17 +55,25 @@ class NoticeRepository:
         tags = article.get(ArticleFields.TAGS)
         if isinstance(tags, list) and tags:
             first = tags[0]
-            return str(first) if first is not None else None
+            if first is not None:
+                first_text = str(first).strip()
+                if first_text:
+                    return first_text
 
         metadata = NoticeRepository._extract_metadata(
             article.get(ArticleFields.METADATA)
         )
         label = metadata.get("label")
         if label is not None:
-            return str(label)
+            label_text = str(label).strip()
+            if label_text:
+                return label_text
 
         source = article.get(ArticleFields.SOURCE_SITE)
-        return str(source) if source else None
+        if source is None:
+            return None
+        source_text = str(source).strip()
+        return source_text if source_text else None
 
     @staticmethod
     def _to_notice_payload(article: dict[str, Any]) -> dict[str, Any]:
@@ -69,7 +88,10 @@ class NoticeRepository:
         is_page = bool(metadata.get("is_page", True))
 
         return {
-            "id": str(article.get(ArticleFields.NEWS_ID, "")),
+            "id": NoticeRepository._normalize_notice_id(
+                article.get(ArticleFields.NEWS_ID)
+            )
+            or "",
             "label": NoticeRepository._extract_label(article),
             "title": str(article.get(ArticleFields.TITLE, "")),
             "date": NoticeRepository._safe_date(
@@ -105,7 +127,8 @@ class NoticeRepository:
         }
 
     def upsert_notice(self, notice: dict[str, Any]) -> bool:
-        if not notice.get("id"):
+        normalized_id = self._normalize_notice_id(notice.get("id"))
+        if not normalized_id:
             return False
 
         sql = """
@@ -127,7 +150,7 @@ class NoticeRepository:
                 conn.execute(
                     sql,
                     (
-                        notice["id"],
+                        normalized_id,
                         notice.get("label"),
                         notice.get("title") or "",
                         notice.get("date") or "",

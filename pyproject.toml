@@ -23,6 +23,7 @@ dependencies = [
   "uvicorn>=0.41.0",
   "zhipuai>=2.1.5.20250825",
   "gnureadline>=8.3.3; sys_platform == 'linux'",
+  "pytest-cov>=7.1.0",
 ]
 
 [project.optional-dependencies]

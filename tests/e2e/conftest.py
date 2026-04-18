@@ -51,6 +51,7 @@ if "sentence_transformers" not in sys.modules:
 
 from app.api.v1.admin import apikeys as admin_apikeys
 from app.api.v1.admin import auth as admin_auth
+from app.api.v1.admin import notices as admin_notices
 from app.api.v1.admin import settings as admin_settings
 from app.api.v1.admin import submission as admin_submission
 from app.api.v1.client import chat as client_chat
@@ -108,6 +109,7 @@ def test_app(isolated_db: None) -> FastAPI:
     app.include_router(admin_auth.router, prefix="/api/v1/admin")
     app.include_router(admin_settings.router, prefix="/api/v1/admin")
     app.include_router(admin_apikeys.router, prefix="/api/v1/admin")
+    app.include_router(admin_notices.router, prefix="/api/v1/admin")
     app.include_router(admin_submission.router, prefix="/api/v1/admin")
     app.include_router(v2_admin_user_registration.router, prefix="/api/v2/admin")
     app.include_router(v2_admin_user_management.router, prefix="/api/v2/admin")
