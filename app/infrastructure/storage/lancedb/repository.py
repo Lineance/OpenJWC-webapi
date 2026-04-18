@@ -964,6 +964,42 @@ class ArticleRepository:
             return total, [_to_notice_item(doc) for doc in docs]
         except Exception as e:
             logger.error(f"Failed to list notices from LanceDB: {e}")
+            return self._list_for_notices_fallback(
+                limit=limit, offset=offset, label=label
+            )
+
+    def _list_for_notices_fallback(
+        self,
+        limit: int,
+        offset: int,
+        label: str | None,
+    ) -> tuple[int, list[dict[str, Any]]]:
+        """Fallback notice list using direct article scan when order table is unavailable."""
+        try:
+            docs = (
+                self._table.search().select(self._NOTICE_FULL_SELECT_FIELDS).to_list()
+            )
+
+            if label:
+                docs = [doc for doc in docs if _extract_label(doc) == label]
+
+            docs.sort(
+                key=lambda item: _safe_publish_date_str(
+                    item.get(ArticleFields.PUBLISH_DATE)
+                ),
+                reverse=True,
+            )
+            total = len(docs)
+            page_docs = docs[offset : offset + limit]
+            logger.warning(
+                "list_for_notices fallback path hit: total=%s, returned=%s, label=%s",
+                total,
+                len(page_docs),
+                label,
+            )
+            return total, [_to_notice_item(doc) for doc in page_docs]
+        except Exception as fallback_error:
+            logger.error(f"Fallback notice listing failed: {fallback_error}")
             return 0, []
 
     def get_notice_labels(self) -> list[str]:

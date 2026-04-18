@@ -4,9 +4,12 @@
 测试 ArticleRepository 的 CRUD 操作。
 """
 
+import threading
+from collections import Counter
 from datetime import datetime, timezone
 from typing import Any
 
+from app.infrastructure.storage.lancedb.connection import get_connection
 from app.infrastructure.storage.lancedb.repository import (
     ArticleRepository,
     _safe_publish_date_str,
@@ -128,6 +131,103 @@ class TestArticleRepository:
         """测试获取最旧记录"""
         results = article_repository.get_oldest(limit=5)
         assert isinstance(results, list)
+
+    def test_list_for_notices_fallback_when_order_path_fails(
+        self,
+        article_repository: Any,
+        sample_article_data: dict[str, Any],
+        monkeypatch: Any,
+    ) -> None:
+        """当 article_order 路径异常时，应回退到直接扫描而不是返回空列表。"""
+        sample_article_data["title_embedding"] = [0.1] * 384
+        sample_article_data["content_embedding"] = [0.1] * 1024
+        article_repository.add_one(sample_article_data)
+
+        def _raise_sync_error() -> Any:
+            raise RuntimeError("simulated order table failure")
+
+        monkeypatch.setattr(
+            article_repository, "_get_synced_connection", _raise_sync_error
+        )
+
+        total, notices = article_repository.list_for_notices(
+            limit=20, offset=0, label=None
+        )
+
+        assert total >= 1
+        assert any(item["id"] == sample_article_data["news_id"] for item in notices)
+
+    def test_list_for_notices_concurrent_reads_and_rebuilds(
+        self,
+        article_repository: Any,
+        sample_batch_articles: list[dict[str, Any]],
+    ) -> None:
+        """并发读取 notices 与重建 article_order 时，应保持可读并且不抛出未处理异常。"""
+        for article in sample_batch_articles:
+            article["title_embedding"] = [0.1] * 384
+            article["content_embedding"] = [0.1] * 1024
+
+        inserted = article_repository.add(sample_batch_articles)
+        assert inserted == len(sample_batch_articles)
+
+        conn = get_connection()
+        conn.rebuild_article_order()
+
+        reader_threads = 4
+        reader_rounds = 80
+        rebuilder_threads = 2
+        rebuild_rounds = 20
+
+        stats: Counter[str] = Counter()
+        errors: list[Exception] = []
+        state_lock = threading.Lock()
+
+        def reader() -> None:
+            for _ in range(reader_rounds):
+                try:
+                    total, notices = article_repository.list_for_notices(
+                        limit=20,
+                        offset=0,
+                        label=None,
+                    )
+                    with state_lock:
+                        if total > 0 and notices:
+                            stats["ok"] += 1
+                        else:
+                            stats["empty"] += 1
+                except Exception as exc:  # pragma: no cover
+                    with state_lock:
+                        errors.append(exc)
+
+        def rebuilder() -> None:
+            for _ in range(rebuild_rounds):
+                try:
+                    conn.rebuild_article_order()
+                    with state_lock:
+                        stats["rebuild_ok"] += 1
+                except Exception as exc:  # pragma: no cover
+                    with state_lock:
+                        errors.append(exc)
+
+        workers = [threading.Thread(target=reader) for _ in range(reader_threads)] + [
+            threading.Thread(target=rebuilder) for _ in range(rebuilder_threads)
+        ]
+
+        for worker in workers:
+            worker.start()
+        for worker in workers:
+            worker.join()
+
+        assert not errors
+        assert stats["ok"] > 0
+
+        final_total, final_notices = article_repository.list_for_notices(
+            limit=20,
+            offset=0,
+            label=None,
+        )
+        assert final_total >= len(sample_batch_articles)
+        assert len(final_notices) > 0
 
 
 class TestNoticeDateFormat:
