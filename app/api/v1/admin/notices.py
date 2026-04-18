@@ -4,8 +4,8 @@ from fastapi import APIRouter, Depends, Path, Query
 
 from app.api.dependencies import verify_admin_token
 from app.api.logging_route import LoggingRoute
-from app.infrastructure.storage.lancedb.connection import get_connection
 from app.infrastructure.storage.lancedb.repository import get_article_repository
+from app.infrastructure.storage.sqlite.notice_repository import get_notice_repository
 from app.models.schemas import ResponseModel
 from app.utils.logging_manager import setup_logger
 
@@ -27,17 +27,17 @@ async def get_latest_notices(
     """
     logger.info(f"Request ID: {admin_info['x_request_id']}")
     logger.info(f"Client Version: {admin_info['x_client_version']}")
-    article_repo = get_article_repository()
+    notice_repo = get_notice_repository()
     offset = size * (page - 1)
     limit = size
-    total, notices = article_repo.list_for_notices(
+    total, notices = notice_repo.list_for_notices(
         label=label, offset=offset, limit=limit
     )
     return ResponseModel(
         msg="获取成功",
         data={
             "total_returned": total,
-            "total_label": article_repo.get_notice_total_labels(),
+            "total_label": notice_repo.get_notice_total_labels(),
             "notices": notices,
         },
     )
@@ -54,9 +54,9 @@ async def get_notices_labels(
     """
     logger.info(f"Request ID: {admin_info['x_request_id']}")
     logger.info(f"Client Version: {admin_info['x_client_version']}")
-    article_repo = get_article_repository()
+    notice_repo = get_notice_repository()
     return ResponseModel(
-        msg="获取成功", data={"labels": article_repo.get_notice_labels()}
+        msg="获取成功", data={"labels": notice_repo.get_notice_labels()}
     )
 
 
@@ -71,15 +71,20 @@ async def delete_notice(
     logger.info(f"Request ID: {admin_info['x_request_id']}")
     logger.info(f"Client Version: {admin_info['x_client_version']}")
     try:
-        article_repo = get_article_repository()
-        if not article_repo.get_notice_info(notice_id):
+        notice_repo = get_notice_repository()
+        if not notice_repo.get_notice_info(notice_id):
             return ResponseModel(msg="入库资讯不存在。", data={})
 
-        if not article_repo.delete(news_id=notice_id):
-            logger.error(f"Failed to delete notice from LanceDB: notice_id={notice_id}")
+        if not notice_repo.delete_notice(notice_id):
+            logger.error(f"Failed to delete notice from SQLite: notice_id={notice_id}")
             return ResponseModel(msg="入库资讯删除失败。", data={})
 
-        get_connection().rebuild_article_order()
+        # 搜索索引与公告主表解耦，这里仅做尽力清理。
+        try:
+            get_article_repository().delete(news_id=notice_id)
+        except Exception as cleanup_error:
+            logger.warning(f"Best-effort LanceDB cleanup failed: {cleanup_error}")
+
         logger.info("Notice deleted successfully.")
         return ResponseModel(msg="入库资讯删除成功。", data={})
     except Exception as e:

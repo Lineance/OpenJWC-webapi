@@ -3,14 +3,8 @@ from __future__ import annotations
 import argparse
 import json
 import sqlite3
-import sys
 import time
-from pathlib import Path
 from typing import Any
-
-ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
 
 from app.core.config import CRAWLER_BIN, NOTICE_JSON, SQLITE_DB_PATH
 
@@ -80,22 +74,10 @@ def snapshot_sqlite_user_state() -> dict[str, int]:
 
 
 def snapshot_lancedb_state() -> dict[str, int]:
-    from app.infrastructure.storage.lancedb.connection import get_connection
     from app.infrastructure.storage.lancedb.repository import get_article_repository
 
     repo = get_article_repository()
-    conn = get_connection()
-
-    articles_count = int(repo.count())
-    try:
-        order_count = int(conn.create_article_order_table(exist_ok=True).count_rows())
-    except Exception:
-        order_count = -1
-
-    return {
-        "articles": articles_count,
-        "article_order": order_count,
-    }
+    return {"articles": int(repo.count())}
 
 
 def validate_binary() -> None:
@@ -119,7 +101,6 @@ def validate_output_json() -> list[dict[str, Any]]:
 
 def run_real_smoke(strict: bool, verbose: bool) -> int:
     from app.infrastructure.crawler import rust_crawler_wrapper as crawler
-    from app.infrastructure.storage.lancedb.connection import get_connection
 
     started = time.time()
 
@@ -157,10 +138,6 @@ def run_real_smoke(strict: bool, verbose: bool) -> int:
             f"duplicate={pipeline_result.duplicate}, invalid={pipeline_result.invalid}, error={pipeline_result.error}"
         )
 
-        _print_step("Rebuilding article order")
-        order_size = get_connection().rebuild_article_order()
-        _print_ok(f"article_order rebuilt with rows={order_size}")
-
         _print_step("Collecting DB snapshots after execution")
         sqlite_after = snapshot_sqlite_user_state()
         lancedb_after = snapshot_lancedb_state()
@@ -184,12 +161,6 @@ def run_real_smoke(strict: bool, verbose: bool) -> int:
             raise AssertionError(
                 "LanceDB articles count regressed: "
                 f"before={lancedb_before['articles']} after={lancedb_after['articles']}"
-            )
-
-        if lancedb_after["article_order"] != lancedb_after["articles"]:
-            raise AssertionError(
-                "article_order count mismatch: "
-                f"articles={lancedb_after['articles']} order={lancedb_after['article_order']}"
             )
 
         if strict:
@@ -218,8 +189,6 @@ def run_real_smoke(strict: bool, verbose: bool) -> int:
                     "lancedb_delta": {
                         "articles": lancedb_after["articles"]
                         - lancedb_before["articles"],
-                        "article_order": lancedb_after["article_order"]
-                        - lancedb_before["article_order"],
                     },
                     "sqlite_changed": sqlite_changed,
                 },

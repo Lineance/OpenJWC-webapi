@@ -115,7 +115,7 @@ async def get_ai_response(request: ChatRequest, use_rag=False):
 对于此类情形，你不必向用户求证，优先默认其为用户最新选中的资讯：
 """
         for notice_id in request.notice_ids:
-            target_notice = _get_article_repo().get_notice_content(notice_id)
+            target_notice = _get_article_repo().get_article_content(notice_id)
             if target_notice:
                 logger.info(f"检测到用户指定资讯：{target_notice['title']}")
                 context += f"\n资讯标题：{target_notice['title']}"

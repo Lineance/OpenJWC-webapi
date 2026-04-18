@@ -8,6 +8,7 @@ from app.infrastructure.storage.lancedb.schema import (
     CONTENT_EMBEDDING_DIM,
     TITLE_EMBEDDING_DIM,
 )
+from app.infrastructure.storage.sqlite.notice_repository import get_notice_repository
 
 
 async def _register_and_login_client(
@@ -113,27 +114,27 @@ async def test_apikey_register_notices_and_semantic_search_flow(
     assert register_resp.json()["msg"] == "设备注册成功"
 
     article_repo = get_article_repository()
-    article_repo.add_one(
-        {
-            ArticleFields.NEWS_ID: "notice-e2e-001",
-            ArticleFields.TITLE: "期中考试安排通知",
-            ArticleFields.PUBLISH_DATE: "2026-04-01",
-            ArticleFields.URL: "https://example.com/n1",
-            ArticleFields.SOURCE_SITE: "教务",
-            ArticleFields.TAGS: ["教务"],
-            ArticleFields.CONTENT_TEXT: "请同学们按时参加期中考试。",
-            ArticleFields.CONTENT_MARKDOWN: "请同学们按时参加期中考试。",
-            ArticleFields.CRAWL_VERSION: 1,
-            ArticleFields.TITLE_EMBEDDING: [0.0] * TITLE_EMBEDDING_DIM,
-            ArticleFields.CONTENT_EMBEDDING: [0.0] * CONTENT_EMBEDDING_DIM,
-            ArticleFields.METADATA: {
-                "label": "教务",
-                "detail_url": "https://example.com/n1",
-                "is_page": True,
-            },
-            ArticleFields.ATTACHMENTS: ["https://example.com/att1.pdf"],
-        }
-    )
+    seeded_doc = {
+        ArticleFields.NEWS_ID: "notice-e2e-001",
+        ArticleFields.TITLE: "期中考试安排通知",
+        ArticleFields.PUBLISH_DATE: "2026-04-01",
+        ArticleFields.URL: "https://example.com/n1",
+        ArticleFields.SOURCE_SITE: "教务",
+        ArticleFields.TAGS: ["教务"],
+        ArticleFields.CONTENT_TEXT: "请同学们按时参加期中考试。",
+        ArticleFields.CONTENT_MARKDOWN: "请同学们按时参加期中考试。",
+        ArticleFields.CRAWL_VERSION: 1,
+        ArticleFields.TITLE_EMBEDDING: [0.0] * TITLE_EMBEDDING_DIM,
+        ArticleFields.CONTENT_EMBEDDING: [0.0] * CONTENT_EMBEDDING_DIM,
+        ArticleFields.METADATA: {
+            "label": "教务",
+            "detail_url": "https://example.com/n1",
+            "is_page": True,
+        },
+        ArticleFields.ATTACHMENTS: ["https://example.com/att1.pdf"],
+    }
+    article_repo.add_one(seeded_doc)
+    get_notice_repository().upsert_from_article(seeded_doc)
 
     notices_resp = await async_client.get(
         "/api/v1/client/notices",

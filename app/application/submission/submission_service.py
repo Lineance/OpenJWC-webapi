@@ -8,6 +8,7 @@ from app.domain.submission import (
 from app.infrastructure.ingestion.adapters.submission import SubmissionAdapter
 from app.infrastructure.ingestion.pipeline import IngestionPipeline
 from app.infrastructure.ingestion.validators import DocumentValidator, URLValidator
+from app.infrastructure.storage.sqlite.notice_repository import get_notice_repository
 from app.infrastructure.storage.sqlite.sql_db_service import db
 from app.infrastructure.storage.sqlite.submission_repository import SubmissionRepository
 from app.utils.logging_manager import setup_logger
@@ -15,6 +16,7 @@ from app.utils.logging_manager import setup_logger
 logger = setup_logger("audit_service")
 submission_repository = SubmissionRepository(db)
 submission_adapter = SubmissionAdapter()
+notice_repository = get_notice_repository()
 submission_pipeline = IngestionPipeline(
     validator=DocumentValidator(
         url_validator=URLValidator(require_domain_whitelist=False)
@@ -97,6 +99,20 @@ def audit_and_import_submission(submission_id: str, status: str, review: str) ->
                 f"投稿入库到 ingestion pipeline 失败: {process_result.status} {process_result.message}"
             )
             return False
+
+        # 公告主读模型写入 SQLite，避免 notices API 依赖 LanceDB 顺序表。
+        notice_repository.upsert_notice(
+            {
+                "id": record.submission_id,
+                "label": record.label or "用户投稿",
+                "title": record.title,
+                "date": record.date,
+                "detail_url": record.detail_url or "",
+                "is_page": record.is_page,
+                "content_text": record.content_text,
+                "attachments": record.attachment_urls,
+            }
+        )
 
     updated = submission_repository.update_status(submission_id, status, review)
     logger.info(f"整个审核提交流程完成，ID: {submission_id}")

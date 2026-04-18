@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Query
 
 from app.api.dependencies import verify_client_token
 from app.api.logging_route import LoggingRoute
-from app.infrastructure.storage.lancedb.repository import get_article_repository
+from app.infrastructure.storage.sqlite.notice_repository import get_notice_repository
 from app.models.schemas import ResponseModel
 from app.utils.logging_manager import setup_logger
 
@@ -24,17 +24,15 @@ async def get_latest_notices(
     """
     获取教务处最新资讯列表（支持分页）
     """
-    article_repo = get_article_repository()
+    notice_repo = get_notice_repository()
     offset = size * (page - 1)
     limit = size
-    total, notices = await to_thread(
-        article_repo.list_for_notices, limit, offset, label
-    )
+    total, notices = await to_thread(notice_repo.list_for_notices, limit, offset, label)
     return ResponseModel(
         msg="获取成功",
         data={
             "total_returned": total,
-            "total_label": await to_thread(article_repo.get_notice_total_labels),
+            "total_label": await to_thread(notice_repo.get_notice_total_labels),
             "notices": notices,
         },
     )
@@ -48,7 +46,7 @@ async def get_notices_labels(
     """
     获取所有标签。
     """
-    article_repo = get_article_repository()
+    notice_repo = get_notice_repository()
     return ResponseModel(
-        msg="获取成功", data={"labels": await to_thread(article_repo.get_notice_labels)}
+        msg="获取成功", data={"labels": await to_thread(notice_repo.get_notice_labels)}
     )

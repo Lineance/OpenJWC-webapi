@@ -33,11 +33,6 @@ CONTENT_EMBEDDING_DIM = 1024
 # =============================================================================
 
 ARTICLES_TABLE_NAME = "articles"
-ARTICLE_ORDER_TABLE_NAME = "article_order"
-
-# =============================================================================
-# 字段名常量
-# =============================================================================
 
 
 class ArticleFields:
@@ -58,38 +53,6 @@ class ArticleFields:
     LAST_UPDATED = "last_updated"
     METADATA = "metadata"
     ATTACHMENTS = "attachments"  # PDF等附件列表
-
-
-# =============================================================================
-# PyArrow Schema 定义
-# =============================================================================
-
-
-def get_article_order_schema() -> pa.Schema:
-    """
-    获取 article_order 表的 PyArrow Schema
-
-    用于维护按时间排序的文章 ID 列表，避免每次都全表扫描。
-
-    字段说明:
-    - ordinal: 全局序号 (1, 2, 3, ...)
-    - ordinal_by_category: 分类内序号 (每个分类独立从1开始)
-    - news_id: 文章 ID
-    - publish_date: 发布时间
-    - category: 分类
-
-    Returns:
-        pa.Schema: PyArrow Schema 对象
-    """
-    return pa.schema(
-        [
-            pa.field("ordinal", pa.int32(), nullable=False),
-            pa.field("ordinal_by_category", pa.int32(), nullable=False),
-            pa.field("news_id", pa.string(), nullable=False),
-            pa.field("publish_date", pa.timestamp("us", tz="UTC"), nullable=True),
-            pa.field("category", pa.string(), nullable=True),
-        ]
-    )
 
 
 def get_article_schema() -> pa.Schema:
@@ -120,7 +83,9 @@ def get_article_schema() -> pa.Schema:
             # 主键和基本信息
             pa.field(ArticleFields.NEWS_ID, pa.string(), nullable=False),
             pa.field(ArticleFields.TITLE, pa.string(), nullable=False),
-            pa.field(ArticleFields.PUBLISH_DATE, pa.timestamp("us", tz="UTC"), nullable=True),
+            pa.field(
+                ArticleFields.PUBLISH_DATE, pa.timestamp("us", tz="UTC"), nullable=True
+            ),
             pa.field(ArticleFields.URL, pa.string(), nullable=False),
             pa.field(ArticleFields.SOURCE_SITE, pa.string(), nullable=True),
             pa.field(ArticleFields.AUTHOR, pa.string(), nullable=True),
@@ -144,7 +109,9 @@ def get_article_schema() -> pa.Schema:
             ),
             # 版本控制
             pa.field(ArticleFields.CRAWL_VERSION, pa.int32(), nullable=False),
-            pa.field(ArticleFields.LAST_UPDATED, pa.timestamp("us", tz="UTC"), nullable=False),
+            pa.field(
+                ArticleFields.LAST_UPDATED, pa.timestamp("us", tz="UTC"), nullable=False
+            ),
             # 元数据 (JSON 字符串)
             pa.field(ArticleFields.METADATA, pa.string(), nullable=True),
         ]

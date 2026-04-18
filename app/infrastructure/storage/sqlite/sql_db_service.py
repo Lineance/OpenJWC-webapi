@@ -5,12 +5,13 @@ from app.infrastructure.storage.sqlite.db_interface import logger
 from app.infrastructure.storage.sqlite.mixins.admin_mixin import AdminMixin
 from app.infrastructure.storage.sqlite.mixins.device_mixin import DeviceMixin
 from app.infrastructure.storage.sqlite.mixins.motto_mixin import MottoMixin
-from app.infrastructure.storage.sqlite.mixins.validation_mixin import ValidationMixin
 from app.infrastructure.storage.sqlite.mixins.user_mixin import UserMixin
+from app.infrastructure.storage.sqlite.mixins.validation_mixin import ValidationMixin
 
 SQLITE_USER_STATE_TABLES = {
     "api_keys",
     "admin_users",
+    "notices",
     "system_settings",
     "mottos",
     "submissions",
@@ -111,6 +112,20 @@ class DBService(ValidationMixin, AdminMixin, DeviceMixin, MottoMixin, UserMixin)
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
         """
+        create_notices_sql = """
+        CREATE TABLE IF NOT EXISTS notices (
+            id TEXT PRIMARY KEY,
+            label TEXT,
+            title TEXT NOT NULL,
+            date TEXT,
+            detail_url TEXT,
+            is_page BOOLEAN,
+            content_text TEXT NOT NULL,
+            attachments TEXT DEFAULT '[]',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
         create_user_registrations_sql = """
         CREATE TABLE IF NOT EXISTS user_registrations (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -131,6 +146,7 @@ class DBService(ValidationMixin, AdminMixin, DeviceMixin, MottoMixin, UserMixin)
             cursor.execute(create_system_sql)
             cursor.execute(create_motto_sql)
             cursor.execute(create_submissions_sql)
+            cursor.execute(create_notices_sql)
             cursor.execute(create_users_sql)
             cursor.execute(create_user_devices_sql)
             cursor.execute(create_user_registrations_sql)
@@ -140,6 +156,12 @@ class DBService(ValidationMixin, AdminMixin, DeviceMixin, MottoMixin, UserMixin)
             )
             cursor.execute(
                 "CREATE INDEX IF NOT EXISTS idx_user_devices_user_device ON user_devices(user_id, device_uuid);"
+            )
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_notices_date ON notices(date);"
+            )
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_notices_label ON notices(label);"
             )
             conn.commit()
             logger.info("sql数据库初始化完成")

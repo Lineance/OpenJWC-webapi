@@ -58,10 +58,9 @@ from app.api.v1.client import notices as client_notices
 from app.api.v1.client import register as client_register
 from app.api.v1.client import search as client_search
 from app.api.v1.client import submission as client_submission
-from app.api.v2.client import auth as v2_client_auth
-from app.api.v2.admin import user_registration as v2_admin_user_registration
 from app.api.v2.admin import user_management as v2_admin_user_management
-from app.infrastructure.storage.lancedb.connection import get_connection
+from app.api.v2.admin import user_registration as v2_admin_user_registration
+from app.api.v2.client import auth as v2_client_auth
 from app.infrastructure.storage.lancedb.repository import get_article_repository
 from app.infrastructure.storage.sqlite.sql_db_service import db
 
@@ -89,7 +88,6 @@ def isolated_db(tmp_path: Path, admin_credentials: dict[str, str]) -> None:
         ]
         if existing_ids:
             repo.bulk_delete(existing_ids)
-            get_connection().rebuild_article_order()
     except Exception:
         pass
 

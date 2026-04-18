@@ -1,19 +1,20 @@
+import traceback
+from asyncio import to_thread
+from datetime import date
+from functools import wraps
+from typing import Any, Dict, List
+
 from fastapi import APIRouter, Depends
+
+from app.api.dependencies import verify_admin_token
+from app.api.logging_route import LoggingRoute
+from app.application.chat import ai_service
+from app.core.config import ALLOWED_SETTINGS
 from app.core.security import verify_password
+from app.infrastructure.crawler.rust_crawler_wrapper import run_crawler_job
 from app.infrastructure.storage.sqlite.sql_db_service import db
 from app.models.schemas import ResponseModel, UpdateSettingRequest
 from app.utils.logging_manager import setup_logger
-from app.api.logging_route import LoggingRoute
-from typing import Dict, Any, List
-from app.api.dependencies import verify_admin_token
-from app.core.config import ALLOWED_SETTINGS
-from datetime import date
-from app.infrastructure.crawler.rust_crawler_wrapper import run_crawler_job
-from app.application.chat import ai_service
-from app.infrastructure.storage.lancedb.connection import get_connection
-from functools import wraps
-from asyncio import to_thread
-import traceback
 
 router = APIRouter(prefix="/settings", route_class=LoggingRoute)
 
@@ -82,10 +83,6 @@ async def reset_settings(
         return ResponseModel(msg="重置全部设置。", data={})
     for key in sanitized_data:
         db.reset_system_setting(key)
-    try:
-        get_connection().rebuild_article_order()
-    except Exception as exc:
-        logger.warning(f"重建 LanceDB 顺序索引失败: {exc}")
     return ResponseModel(msg="修改成功", data={})
 
 
@@ -137,4 +134,3 @@ async def force_crawl(
     logger.info(f"Client Version: {admin_info['x_client_version']}")
     await to_thread(run_crawler_job)
     return ResponseModel(msg="手动爬虫成功", data={})
-

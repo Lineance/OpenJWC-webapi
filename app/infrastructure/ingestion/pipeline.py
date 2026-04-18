@@ -22,6 +22,7 @@ from app.infrastructure.storage.lancedb import (
     get_article_repository,
     init_database,
 )
+from app.infrastructure.storage.sqlite.notice_repository import get_notice_repository
 
 from .dedup import DeduplicationService
 from .embedder_provider import EmbeddingClient, get_embedder
@@ -159,6 +160,7 @@ class IngestionPipeline:
             init_database(db_path)
 
         self._repository = repository or get_article_repository()
+        self._notice_repository = get_notice_repository()
         self._embedder = embedder or get_embedder()
         self._validator = validator or DocumentValidator()
         self._tag_matcher = tag_matcher or get_tag_matcher()
@@ -230,6 +232,7 @@ class IngestionPipeline:
                 status = "success"
 
             if success:
+                self._sync_notice_projection([normalized])
                 return ProcessResult(
                     news_id=news_id,
                     url=url,
@@ -337,13 +340,13 @@ class IngestionPipeline:
             try:
                 if not self._skip_dedup:
                     new_docs_write = [
-                        d for d in docs_to_process
-                        if d not in upsert_docs
+                        d for d in docs_to_process if d not in upsert_docs
                     ]
                     upsert_docs_write = upsert_docs
 
                     if new_docs_write:
                         self._repository.add(new_docs_write)
+                        self._sync_notice_projection(new_docs_write)
                         for doc in new_docs_write:
                             result.add_result(
                                 ProcessResult(
@@ -356,6 +359,7 @@ class IngestionPipeline:
 
                     if upsert_docs_write:
                         self._repository.upsert_batch(upsert_docs_write)
+                        self._sync_notice_projection(upsert_docs_write)
                         for doc in upsert_docs_write:
                             result.add_result(
                                 ProcessResult(
@@ -367,6 +371,7 @@ class IngestionPipeline:
                             )
                 else:
                     self._repository.add(docs_to_process)
+                    self._sync_notice_projection(docs_to_process)
                     for doc in docs_to_process:
                         result.add_result(
                             ProcessResult(
@@ -557,6 +562,19 @@ class IngestionPipeline:
     def _write(self, data: dict[str, Any]) -> bool:
         """写入数据库"""
         return bool(self._repository.add_one(data))
+
+    def _sync_notice_projection(self, docs: list[dict[str, Any]]) -> None:
+        """Project article writes into SQLite notices read model."""
+        try:
+            projected = self._notice_repository.upsert_many_from_articles(docs)
+            if projected != len(docs):
+                logger.warning(
+                    "Notice projection partial success: projected=%s expected=%s",
+                    projected,
+                    len(docs),
+                )
+        except Exception as e:
+            logger.warning(f"Notice projection failed: {e}")
 
 
 # =============================================================================
