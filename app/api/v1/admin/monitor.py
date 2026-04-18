@@ -33,7 +33,7 @@ async def get_stats(admin_info: dict = Depends(verify_admin_token)):
                 "total_notices": total_notices,
             },
         )
-    except Exception as e:
+    except Exception:
         logger.error(f"获取统计数据失败: {traceback.format_exc()}")
         return ResponseModel(
             msg="获取统计数据失败",

@@ -19,6 +19,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 # =============================================================================
 
 
+@pytest.fixture(autouse=True)
+def reset_lancedb_singleton() -> Generator[None, None, None]:
+    """确保每个 retrieval 测试使用独立 LanceDB 单例状态。"""
+    from app.infrastructure.storage.lancedb.connection import LanceDBConnection
+
+    LanceDBConnection.reset()
+    try:
+        yield
+    finally:
+        LanceDBConnection.reset()
+
+
 @pytest.fixture
 def temp_dir() -> Generator[str, None, None]:
     """创建临时目录，测试后自动清理"""
@@ -55,7 +67,9 @@ def mock_embedder() -> MagicMock:
 # =============================================================================
 
 
-def _make_sample_article(news_id: str, title: str, content: str, source_site: str = "测试站点") -> dict[str, Any]:
+def _make_sample_article(
+    news_id: str, title: str, content: str, source_site: str = "测试站点"
+) -> dict[str, Any]:
     """创建示例文章数据（含 embeddings 和 last_updated）"""
     return {
         "news_id": news_id,
@@ -97,5 +111,3 @@ def sample_articles() -> list[dict[str, Any]]:
         )
         for i in range(1, 6)
     ]
-
-

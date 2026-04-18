@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends
-from app.models.schemas import ChatRequest, ResponseModel
+from app.models.schemas import ResponseModel
 from app.utils.logging_manager import setup_logger
 from app.api.dependencies import verify_client_token
 from app.api.logging_route import LoggingRoute

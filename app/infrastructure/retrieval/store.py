@@ -18,8 +18,13 @@ import pyarrow as pa
 from lancedb.table import Table
 
 # 导入数据层组件
-from app.infrastructure.storage.lancedb import ArticleRepository, get_article_repository
-from app.infrastructure.storage.lancedb.schema import ArticleFields
+from app.infrastructure.storage.lancedb import (
+    ArticleRepository,
+    get_article_repository,
+    get_connection,
+    init_database,
+)
+from app.infrastructure.storage.lancedb.schema import ARTICLES_TABLE_NAME, ArticleFields
 
 from .schema.article import Article, ArticleQuery
 from .utils.embedding import RetrievalEmbedder, get_retrieval_embedder
@@ -62,30 +67,45 @@ class LanceStore:
             table_name: 表名
         """
         self._table = table
-        self._repository = repository or get_article_repository()
-        self._embedder = embedder or get_retrieval_embedder()
 
+        # 先初始化表，避免仓库提前触发默认路径连接，污染后续 db_path 单例配置。
         if not self._table and db_path:
             self._initialize_table(db_path, table_name)
+
+        if repository is not None:
+            self._repository = repository
+        elif self._table is not None:
+            self._repository = ArticleRepository(table=self._table)
+        else:
+            self._repository = get_article_repository(db_path=db_path)
+
+        self._embedder = embedder or get_retrieval_embedder()
 
         logger.info(f"LanceStore initialized for table: {table_name}")
 
     def _initialize_table(self, db_path: str, table_name: str) -> None:
         """初始化表"""
         try:
-            import lancedb
+            if table_name == ARTICLES_TABLE_NAME:
+                conn = init_database(db_path, create_indices=False)
+                self._table = conn.get_table(table_name)
+                logger.info(
+                    f"Opened existing table via connection manager: {table_name}"
+                )
+                return
 
-            db = lancedb.connect(db_path)
-            tables_obj = db.list_tables()
-            table_names = getattr(tables_obj, "tables", tables_obj)
-            if table_name in table_names:
-                self._table = db.open_table(table_name)
-                logger.info(f"Opened existing table: {table_name}")
+            conn = get_connection(db_path)
+            if conn.table_exists(table_name):
+                self._table = conn.get_table(table_name)
+                logger.info(
+                    f"Opened existing table via connection manager: {table_name}"
+                )
             else:
                 # 创建新表
                 schema = Article.get_schema()
-                self._table = db.create_table(table_name, schema=schema)
-                logger.info(f"Created new table: {table_name}")
+                conn.db.create_table(table_name, schema=schema)
+                self._table = conn.get_table(table_name)
+                logger.info(f"Created new table via connection manager: {table_name}")
         except Exception as e:
             logger.error(f"Failed to initialize table: {e}")
             raise
@@ -371,10 +391,10 @@ class LanceStore:
         Returns:
             搜索结果列表
         """
-        try:
-            if fields is None:
-                fields = Article.get_searchable_fields()
+        if fields is None:
+            fields = Article.get_searchable_fields()
 
+        try:
             # 使用 LanceDB 的全文搜索
             results = (
                 self.table.search(
@@ -390,24 +410,50 @@ class LanceStore:
 
             return cast("list[dict[str, Any]]", results.to_list())
         except Exception as e:
-            # 检查是否是倒排索引未创建的错误
             error_msg = str(e)
-            if (
-                "Cannot perform full text search unless an INVERTED index has been created"
-                in error_msg
-            ):
-                logger.warning(
-                    f"Fulltext index not available, falling back to simple text search: {error_msg}"
-                )
-                # 降级方案：使用简单的文本搜索
-                # 此处 fields 已在上面进行了 None 检查并赋予默认值，但为了类型安全，再次确保
-                search_fields = (
-                    fields if fields is not None else Article.get_searchable_fields()
-                )
-                return self._simple_text_search(query, search_fields, limit, where)
-            else:
+            if not self._is_fts_index_missing_error(error_msg):
                 logger.error(f"Fulltext search failed: {e}")
                 raise
+
+            logger.warning(
+                "Fulltext index unavailable or corrupted, trying to rebuild index before fallback: %s",
+                error_msg,
+            )
+
+            # 尝试自动重建 FTS 索引并重试一次（覆盖 .arrow 缺失、索引未创建等场景）
+            try:
+                self.create_fulltext_index(fields=fields)
+                retried = (
+                    self.table.search(
+                        query=query,
+                        query_type="fts",
+                    )
+                    .limit(limit)
+                    .offset(offset)
+                )
+                if where:
+                    retried = retried.where(where)
+                return cast("list[dict[str, Any]]", retried.to_list())
+            except Exception as retry_error:
+                logger.warning(
+                    "Rebuilding FTS index failed, fallback to simple text search: %s",
+                    retry_error,
+                )
+                return self._simple_text_search(query, fields, limit, where)
+
+    def _is_fts_index_missing_error(self, error_msg: str) -> bool:
+        """判断是否为 FTS 索引缺失/损坏相关错误。"""
+        msg = error_msg.lower()
+        patterns = [
+            "cannot perform full text search unless an inverted index has been created",
+            "fts index does not exist",
+            "file not found",
+            "filenotfounderror",
+            ".arrow",
+            "no such file or directory",
+            "tantivy",
+        ]
+        return any(pattern in msg for pattern in patterns)
 
     def _simple_text_search(
         self,
@@ -898,7 +944,7 @@ class LanceStore:
 def create_store(
     db_path: str = "../data/lancedb",
     table_name: str = "articles",
-    create_indices: bool = True,
+    create_indices: bool = False,
 ) -> LanceStore:
     """
     创建 LanceStore 实例

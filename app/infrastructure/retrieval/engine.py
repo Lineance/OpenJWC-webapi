@@ -55,8 +55,8 @@ class RetrievalEngine:
             table_name: 表名
         """
         if store is None:
-            # 确保 create_store 返回 LanceStore 实例
-            store = create_store(db_path, table_name)
+            # 索引由写入链路确保；检索初始化仅负责拿到可用存储实例。
+            store = create_store(db_path, table_name, create_indices=False)
 
         # 检查 store 类型
         if isinstance(store, str):
@@ -70,7 +70,9 @@ class RetrievalEngine:
         self._store = store
         self._embedder = embedder or get_retrieval_embedder()
 
-        logger.info(f"RetrievalEngine initialized with store type: {type(store).__name__}")
+        logger.info(
+            f"RetrievalEngine initialized with store type: {type(store).__name__}"
+        )
 
     # =========================================================================
     # 核心检索方法
@@ -342,12 +344,16 @@ class RetrievalEngine:
                 title_vec = self._embedder.embed_query(query, field="title")
                 if isinstance(title_vec, tuple):
                     title_vec = title_vec[0]
-                title_sim = self._embedder.cosine_similarity(title_vec, result["title_embedding"])
+                title_sim = self._embedder.cosine_similarity(
+                    title_vec, result["title_embedding"]
+                )
 
             if "content_embedding" in result:
                 content_vec = self._embedder.embed_query(query, field="content")
                 if isinstance(content_vec, tuple):
-                    content_vec = content_vec[1] if len(content_vec) > 1 else content_vec[0]
+                    content_vec = (
+                        content_vec[1] if len(content_vec) > 1 else content_vec[0]
+                    )
                 content_sim = self._embedder.cosine_similarity(
                     content_vec, result["content_embedding"]
                 )
@@ -358,7 +364,9 @@ class RetrievalEngine:
 
             result["_vector_score"] = vector_score
             result["_keyword_score"] = keyword_score
-            result["_final_score"] = vector_score * vector_weight + keyword_score * keyword_weight
+            result["_final_score"] = (
+                vector_score * vector_weight + keyword_score * keyword_weight
+            )
 
         # 按最终分数排序
         results.sort(key=lambda x: x.get("_final_score", 0), reverse=True)
@@ -391,7 +399,12 @@ class RetrievalEngine:
             文档数据
         """
         try:
-            results = self._store.table.search().where(f"news_id = '{news_id}'").limit(1).to_list()
+            results = (
+                self._store.table.search()
+                .where(f"news_id = '{news_id}'")
+                .limit(1)
+                .to_list()
+            )
             return results[0] if results else None
         except Exception as e:
             logger.error(f"Failed to get document {news_id}: {e}")
@@ -459,7 +472,9 @@ class RetrievalEngine:
             try:
                 results = self._store.table.search().select(["publish_date"]).to_list()
                 dates = [
-                    doc["publish_date"] for doc in results if doc.get("publish_date") is not None
+                    doc["publish_date"]
+                    for doc in results
+                    if doc.get("publish_date") is not None
                 ]
                 if dates:
                     time_range["min"] = min(dates)

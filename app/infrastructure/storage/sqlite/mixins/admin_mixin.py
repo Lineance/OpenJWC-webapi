@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Dict, Optional
+from typing import Optional
 
 from app.core.config import ADMIN_CONFIG_PATH, ALLOWED_SETTINGS
 from app.core.security import get_password_hash

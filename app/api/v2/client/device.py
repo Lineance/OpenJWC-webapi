@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from app.models.v2_schemas import V2Response, V2DetailResponse, UnbindRequest
 from app.infrastructure.storage.sqlite.sql_db_service import db
 from app.api.dependencies import verify_client_token

@@ -1,7 +1,6 @@
 """Retrieval Store 单元测试"""
 
-from typing import Any
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 

@@ -1,4 +1,3 @@
-import logging
 from fastapi import Request, Response
 from fastapi.routing import APIRoute
 from typing import Callable

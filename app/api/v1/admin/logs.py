@@ -1,10 +1,8 @@
 from fastapi import APIRouter, Depends, Query
-from app.infrastructure.storage.sqlite.sql_db_service import db
 from app.models.schemas import ResponseModel
-from app.utils import logging_manager
 from app.utils.logging_manager import setup_logger
 from app.api.logging_route import LoggingRoute
-from typing import Dict, Any, List, Annotated
+from typing import Annotated
 from app.api.dependencies import verify_admin_token
 from app.utils.logging_manager import parse_logs
 

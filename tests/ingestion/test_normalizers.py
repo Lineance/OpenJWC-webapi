@@ -2,7 +2,6 @@
 
 from datetime import datetime, timezone
 
-import pytest
 
 from app.infrastructure.ingestion.normalizers import (
     extract_first_sentence,

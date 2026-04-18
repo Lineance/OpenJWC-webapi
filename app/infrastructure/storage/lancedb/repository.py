@@ -20,7 +20,7 @@ from typing import Any, cast
 from .connection import get_connection, init_database
 from .exceptions import RepositorySystemError
 from .guard import SQLGuard, sanitize
-from .schema import ARTICLE_ORDER_TABLE_NAME, ArticleFields, ArticleRecord
+from .schema import ArticleFields, ArticleRecord
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +31,8 @@ logger = logging.getLogger(__name__)
 _last_sync_check = 0.0
 _SYNC_CHECK_INTERVAL = 300  # 5分钟内不重复检查
 _sync_rebuild_lock = threading.Lock()
+_index_ensure_lock = threading.Lock()
+_INDEX_ENSURE_INTERVAL = 120.0
 
 
 def _safe_publish_date_str(value: Any) -> str:
@@ -150,6 +152,7 @@ class ArticleRepository:
             self._table = table
 
         self._guard = SQLGuard()
+        self._last_index_ensure_ts = 0.0
         # Label 缓存
         self._labels_cache: list[str] | None = None
         self._labels_cache_ts: float = 0.0
@@ -290,6 +293,44 @@ class ArticleRepository:
         except Exception as e:
             logger.warning(f"Post-write sync check failed: {e}")
 
+    @staticmethod
+    def _get_label_stats_schema():
+        """Return label_stats schema used by notice label APIs."""
+        import pyarrow as pa
+
+        return pa.schema(
+            [
+                pa.field("label", pa.string(), nullable=False),
+                pa.field("count", pa.int32(), nullable=False),
+                pa.field("order", pa.int32(), nullable=False),
+            ]
+        )
+
+    def _get_or_create_label_stats_table(self):
+        """Get cached label_stats table, create it if missing."""
+        conn = get_connection()
+        try:
+            return conn.get_table("label_stats")
+        except ValueError:
+            conn.db.create_table("label_stats", schema=self._get_label_stats_schema())
+            return conn.get_table("label_stats")
+
+    def _ensure_indices_after_write(self, force: bool = False) -> None:
+        """Ensure indices after writes with throttling to avoid repeated rebuilds."""
+        now = time.monotonic()
+        if not force and now - self._last_index_ensure_ts < _INDEX_ENSURE_INTERVAL:
+            return
+
+        with _index_ensure_lock:
+            now = time.monotonic()
+            if not force and now - self._last_index_ensure_ts < _INDEX_ENSURE_INTERVAL:
+                return
+            try:
+                get_connection().create_indices()
+                self._last_index_ensure_ts = now
+            except Exception as e:
+                logger.warning(f"Post-write index ensure failed: {e}")
+
     @property
     def table(self) -> Any:
         """获取底层表对象"""
@@ -321,6 +362,7 @@ class ArticleRepository:
 
             # 插入数据
             self._table.add([record_dict])
+            self._ensure_indices_after_write()
             self._maybe_rebuild_order()
             self._update_label_stats_for_article(record_dict.get(ArticleFields.TAGS))
             logger.debug(f"Added article: {record.news_id}")
@@ -361,6 +403,7 @@ class ArticleRepository:
 
             # 批量插入
             self._table.add(records)
+            self._ensure_indices_after_write()
             self._maybe_rebuild_order()
             # 更新 label 统计
             for record in records:
@@ -926,8 +969,7 @@ class ArticleRepository:
     def get_notice_labels(self) -> list[str]:
         """Return unique labels from label_stats ordered by `order` field."""
         try:
-            conn = get_connection()
-            label_stats = conn.db.open_table("label_stats")
+            label_stats = self._get_or_create_label_stats_table()
             results = label_stats.search().to_list()
             results.sort(key=lambda r: r.get("order", 0))
             labels = [str(r.get("label")) for r in results if r.get("label")]
@@ -940,8 +982,7 @@ class ArticleRepository:
             logger.info("label_stats table not found, rebuilding...")
             self.rebuild_label_stats()
             try:
-                conn = get_connection()
-                label_stats = conn.db.open_table("label_stats")
+                label_stats = self._get_or_create_label_stats_table()
                 results = label_stats.search().to_list()
                 results.sort(key=lambda r: r.get("order", 0))
                 labels = [str(r.get("label")) for r in results if r.get("label")]
@@ -958,20 +999,20 @@ class ArticleRepository:
             and time.monotonic() - self._labels_cache_ts < self._labels_cache_ttl_sec
         ):
             return len(self._labels_cache)
-        # 刷新缓存
-        self.get_notice_labels()
-        return len(self._labels_cache) if self._labels_cache else 0
+
+        labels = self.get_notice_labels()
+        if labels:
+            return len(labels)
+
         try:
-            conn = get_connection()
-            label_stats = conn.db.open_table("label_stats")
+            label_stats = self._get_or_create_label_stats_table()
             return label_stats.count_rows()
         except Exception:
             # 表不存在，触发重建
             logger.info("label_stats table not found, rebuilding...")
             self.rebuild_label_stats()
             try:
-                conn = get_connection()
-                return conn.db.open_table("label_stats").count_rows()
+                return self._get_or_create_label_stats_table().count_rows()
             except Exception:
                 return 0
 
@@ -979,7 +1020,7 @@ class ArticleRepository:
         """Rebuild label_stats table ordered by article_order's ordinal."""
         try:
             conn = get_connection()
-            order_table = conn.db.open_table(ARTICLE_ORDER_TABLE_NAME)
+            order_table = conn.create_article_order_table(exist_ok=True)
             total = order_table.count_rows()
             order_results = order_table.search().limit(max(total, 1000)).to_list()
             order_results.sort(key=lambda r: r.get("ordinal", 0))
@@ -997,24 +1038,20 @@ class ArticleRepository:
             sorted_labels = sorted(seen.keys(), key=lambda x: seen[x])
 
             try:
-                conn.db.drop_table("label_stats")
+                conn.drop_table("label_stats")
             except Exception:
                 pass
 
-            import pyarrow as pa
-            schema = pa.schema([
-                pa.field("label", pa.string(), nullable=False),
-                pa.field("count", pa.int32(), nullable=False),
-                pa.field("order", pa.int32(), nullable=False),
-            ])
-            conn.db.create_table("label_stats", schema=schema)
+            conn.db.create_table("label_stats", schema=self._get_label_stats_schema())
 
-            stats_table = conn.db.open_table("label_stats")
+            stats_table = conn.get_table("label_stats")
             if sorted_labels:
-                stats_table.add([
-                    {"label": label, "count": counter[label], "order": seen[label]}
-                    for label in sorted_labels
-                ])
+                stats_table.add(
+                    [
+                        {"label": label, "count": counter[label], "order": seen[label]}
+                        for label in sorted_labels
+                    ]
+                )
 
             logger.info(f"Rebuilt label_stats with {len(sorted_labels)} labels")
             return counter
@@ -1032,59 +1069,20 @@ class ArticleRepository:
         
         try:
             conn = get_connection()
-            
-            # 获取 article_order 表中的所有记录
-            order_table = conn.db.open_table(ARTICLE_ORDER_TABLE_NAME)
-            total = order_table.count_rows()
-            if total == 0:
-                return
-                
-            order_results = order_table.search().limit(max(total, 1000)).to_list()
-            order_results.sort(key=lambda r: r.get("ordinal", 0))
-            
-            # 计算每个 label 的 count 和第一次出现的顺序
-            seen: dict[str, int] = {}
-            counter: dict[str, int] = {}
-            for r in order_results:
-                cat = r.get("category", "")
-                if not cat:
-                    continue
-                if cat not in seen:
-                    seen[cat] = len(seen)
-                counter[cat] = counter.get(cat, 0) + 1
-            
-            # 按第一次出现的顺序排序 labels
-            sorted_labels = sorted(seen.keys(), key=lambda x: seen[x])
-            
-            # 获取或创建 label_stats 表
-            try:
-                stats_table = conn.db.open_table("label_stats")
-            except Exception:
-                # 表不存在，创建新表
-                import pyarrow as pa
-                schema = pa.schema([
-                    pa.field("label", pa.string(), nullable=False),
-                    pa.field("count", pa.int32(), nullable=False),
-                    pa.field("order", pa.int32(), nullable=False),
-                ])
-                conn.db.create_table("label_stats", schema=schema)
-                stats_table = conn.db.open_table("label_stats")
-            
-            # 删除所有现有记录
-            try:
-                stats_table.delete("1 = 1")  # 删除所有记录
-            except Exception:
-                pass
-            
-            # 添加更新后的记录
-            if sorted_labels:
-                stats_table.add([
-                    {"label": label, "count": counter[label], "order": seen[label]}
-                    for label in sorted_labels
-                ])
-                
-            logger.debug(f"Updated label_stats with {len(sorted_labels)} labels")
-            
+            stats_table = conn.db.open_table("label_stats")
+
+            # 检查 label 是否存在
+            existing = stats_table.search().where(f"label = '{label}'").limit(1).to_list()
+            if existing:
+                # 更新 count
+                old_count = existing[0].get("count", 0)
+                # 删除旧记录
+                stats_table.delete(f"label = '{label}'")
+                # 添加新记录
+                stats_table.add([{"label": label, "count": old_count + 1}])
+            else:
+                # 新增 label
+                stats_table.add([{"label": label, "count": 1}])
         except Exception as e:
             logger.warning(f"Failed to update label_stats: {e}")
 

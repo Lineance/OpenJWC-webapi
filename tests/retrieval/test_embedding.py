@@ -1,9 +1,7 @@
 """Retrieval Embedding Utilities 单元测试"""
 
-from typing import Any
 from unittest.mock import MagicMock, patch
 
-import numpy as np
 import pytest
 
 

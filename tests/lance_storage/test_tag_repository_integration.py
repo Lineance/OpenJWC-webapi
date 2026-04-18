@@ -1,9 +1,7 @@
 """Tag Repository Integration Tests - 真实实现测试"""
 
 from datetime import datetime
-from typing import Any
 
-import pytest
 
 from app.infrastructure.storage.lancedb.tag_repository import TagRepository
 from app.infrastructure.storage.lancedb.tag_schema import TagRecord

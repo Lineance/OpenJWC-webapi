@@ -1,5 +1,4 @@
-import json
-from typing import List, Dict, Optional, Tuple
+from typing import Tuple
 from app.infrastructure.storage.sqlite.db_interface import DBInterface, logger
 from app.application.motto.motto_service import get_daily_quote
 

@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 # 确保项目根路径可用
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
@@ -56,7 +55,6 @@ class TestLanceStoreRealOperations:
     ) -> None:
         """测试添加文章并进行向量搜索"""
         from app.infrastructure.retrieval.store import LanceStore
-        from app.infrastructure.retrieval.schema.article import Article
 
         # 创建 store
         store = LanceStore(
