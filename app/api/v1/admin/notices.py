@@ -1,3 +1,5 @@
+
+from typing import Any
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, Query
@@ -13,18 +15,14 @@ logger = setup_logger("admin_notice_logs")
 
 router = APIRouter(prefix="/notices", route_class=LoggingRoute)
 
-
 @router.get("", response_model=ResponseModel)
 async def get_latest_notices(
     label: Annotated[str | None, Query(description="可选的指定标签")] = None,
     page: int = Query(1, ge=1, description="返回的页码"),
     size: int = Query(20, ge=1, le=50, description="每页返回的数量，最大不超过50条"),
     admin_info: dict = Depends(verify_admin_token),
-):
-    """
-    获取教务处最新资讯列表（支持分页）
-    管理员特供。
-    """
+) -> Any:
+    """获取教务处最新资讯列表（支持分页）"""
     logger.info(f"Request ID: {admin_info['x_request_id']}")
     logger.info(f"Client Version: {admin_info['x_client_version']}")
     notice_repo = get_notice_repository()
@@ -42,16 +40,11 @@ async def get_latest_notices(
         },
     )
 
-
-# TODO: 获取所有标签的接口。
 @router.get("/labels", response_model=ResponseModel)
 async def get_notices_labels(
     admin_info: dict = Depends(verify_admin_token),
-):
-    """
-    获取所有标签。
-    管理员特供。
-    """
+) -> Any:
+    """获取所有标签。"""
     logger.info(f"Request ID: {admin_info['x_request_id']}")
     logger.info(f"Client Version: {admin_info['x_client_version']}")
     notice_repo = get_notice_repository()
@@ -59,15 +52,12 @@ async def get_notices_labels(
         msg="获取成功", data={"labels": notice_repo.get_notice_labels()}
     )
 
-
 @router.delete("/{notice_id}", response_model=ResponseModel)
 async def delete_notice(
     notice_id: str = Path(description="目标资讯的id"),
     admin_info: dict = Depends(verify_admin_token),
-):
-    """
-    删除某个已入库资讯。
-    """
+) -> Any:
+    """删除某个已入库资讯。"""
     logger.info(f"Request ID: {admin_info['x_request_id']}")
     logger.info(f"Client Version: {admin_info['x_client_version']}")
     try:
@@ -79,7 +69,6 @@ async def delete_notice(
             logger.error(f"Failed to delete notice from SQLite: notice_id={notice_id}")
             return ResponseModel(msg="入库资讯删除失败。", data={})
 
-        # 搜索索引与公告主表解耦，这里仅做尽力清理。
         try:
             get_article_repository().delete(news_id=notice_id)
         except Exception as cleanup_error:

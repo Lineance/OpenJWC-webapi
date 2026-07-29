@@ -1,10 +1,3 @@
-"""Smoke test script for agent event loop and planning behavior.
-
-Usage examples:
-  python tests/smoke_agent.py --mode heuristic
-  python tests/smoke_agent.py --mode llm --require-llm
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -27,9 +20,7 @@ from app.infrastructure.agent.memory.buffer import ConversationBuffer
 from app.infrastructure.agent.tools.protocol import ToolResult
 from app.infrastructure.agent.tools.registry import ToolRegistry
 
-
 class SmokeSearchTool:
-    """A minimal tool that simulates retrieval results for smoke testing."""
 
     name = "search_keyword"
     description = "Return deterministic mock results for smoke tests"
@@ -47,7 +38,6 @@ class SmokeSearchTool:
         ]
         return ToolResult(ok=True, content={"results": results, "total": len(results)})
 
-
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run a smoke test for ReActAgent")
     parser.add_argument("--query", default="请帮我总结本周教学通知")
@@ -62,11 +52,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-tokens", type=int, default=512)
     return parser.parse_args()
 
-
 def load_env_files() -> None:
     load_dotenv(ROOT / "app" / "infrastructure" / "agent" / ".env", override=False)
     load_dotenv(ROOT / ".env", override=False)
-
 
 def build_decision_client(args: argparse.Namespace) -> LLMDecisionClient | None:
     if args.mode == "heuristic":
@@ -79,7 +67,6 @@ def build_decision_client(args: argparse.Namespace) -> LLMDecisionClient | None:
         max_tokens=args.max_tokens,
         timeout_seconds=args.llm_timeout,
     )
-
 
 async def run_smoke(args: argparse.Namespace) -> int:
     load_env_files()
@@ -146,13 +133,9 @@ async def run_smoke(args: argparse.Namespace) -> int:
     print("\nSMOKE PASSED")
     return 0
 
-
 def main() -> int:
     args = parse_args()
     return asyncio.run(run_smoke(args))
 
-
 if __name__ == "__main__":
     raise SystemExit(main())
-
-

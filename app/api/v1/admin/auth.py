@@ -1,3 +1,5 @@
+
+from typing import Any
 from fastapi import APIRouter, Depends
 from fastapi.security import OAuth2PasswordRequestForm
 from app.core.security import verify_password, create_access_token
@@ -11,14 +13,9 @@ router = APIRouter(prefix="/auth", route_class=LoggingRoute)
 
 logger = setup_logger("admin_auth_logs")
 
-
 @router.post("/login", response_model=ResponseModel)
-async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
-    """
-    面板管理员登录接口
-    注意：为了兼容 OAuth2 标准，前端发来的请求体必须是 form-data，而不是 JSON。
-    包含两个字段：username 和 password。
-    """
+async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()) -> Any:
+    """面板管理员登录接口"""
     user = db.get_admin_user(form_data.username)
     if not user:
         logger.warning(f"尝试登录的用户不存在: {form_data.username}")
@@ -34,4 +31,3 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
         msg="登录成功",
         data={"token": access_token, "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60},
     )
-

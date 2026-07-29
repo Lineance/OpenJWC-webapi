@@ -1,7 +1,6 @@
 from app.infrastructure.agent.events.stream import to_sse
 from app.infrastructure.agent.events.types import AgentEvent
 
-
 def test_to_sse_uses_standard_data_prefix() -> None:
     event = AgentEvent(type="message", payload={"content": "ok"})
     serialized = to_sse(event)

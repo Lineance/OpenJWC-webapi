@@ -1,3 +1,5 @@
+
+from typing import Any
 from asyncio import to_thread
 
 from fastapi import APIRouter, Depends
@@ -17,24 +19,21 @@ logger = setup_logger("submission_api_logs")
 
 router = APIRouter(prefix="/submissions", route_class=LoggingRoute)
 
-
-# TODO: 测试该模块功能
-
-
 @router.post("")
 async def client_submission(
     request: SubmissionRequest, auth: dict = Depends(verify_client_token)
-):
-    draft = SubmissionDraft(
+) -> Any:
+    content = SubmissionContent.from_text(
+        request.content.text,
+        request.content.attachment_urls,
+    )
+    draft = SubmissionDraft.for_notice(
         label=request.label,
         title=request.title,
         date=request.date,
         detail_url=request.detail_url,
         is_page=request.is_page,
-        content=SubmissionContent(
-            text=request.content.text,
-            attachment_urls=request.content.attachment_urls,
-        ),
+        content=content,
     )
     success, message = await to_thread(submit_submission, draft, str(auth.get("user_id")))
     if success:
@@ -48,9 +47,8 @@ async def client_submission(
             },
         )
 
-
 @router.get("/my")
-async def process_query(auth: dict = Depends(verify_client_token)):
+async def process_query(auth: dict = Depends(verify_client_token)) -> Any:
     notices = await to_thread(get_my_submissions, str(auth.get("user_id")))
     return ResponseModel(
         msg="提交成功",

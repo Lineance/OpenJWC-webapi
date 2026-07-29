@@ -1,86 +1,24 @@
-"""
-Schema Definitions - LanceDB 表结构定义
-
-东南大学新闻数据存储 Schema，包含:
-- 结构化元数据字段
-- 双向量字段 (标题 384d + 正文 1024d)
-- 全文索引字段
-- 版本控制字段
-
-Responsibilities:
-    - 定义 Article 数据结构
-    - PyArrow Schema 生成
-    - 字段常量和配置
-"""
+"""Schema Definitions - LanceDB 表结构定义"""
 
 from datetime import datetime
 from typing import Any
 
 import pyarrow as pa
 
-# =============================================================================
-# 向量维度常量
-# =============================================================================
-
-# 标题向量: paraphrase-multilingual-MiniLM-L12-v2 (384 维)
 TITLE_EMBEDDING_DIM = 384
 
-# 正文向量: BAAI/bge-large-zh (1024 维)
 CONTENT_EMBEDDING_DIM = 1024
 
-# =============================================================================
-# 表名常量
-# =============================================================================
-
 ARTICLES_TABLE_NAME = "articles"
-
-
-class ArticleFields:
-    """Article 表字段名常量，避免硬编码字符串"""
-
-    NEWS_ID = "news_id"
-    TITLE = "title"
-    PUBLISH_DATE = "publish_date"
-    URL = "url"
-    SOURCE_SITE = "source_site"
-    AUTHOR = "author"
-    TAGS = "tags"
-    CONTENT_MARKDOWN = "content_markdown"
-    CONTENT_TEXT = "content_text"
-    TITLE_EMBEDDING = "title_embedding"
-    CONTENT_EMBEDDING = "content_embedding"
-    CRAWL_VERSION = "crawl_version"
-    LAST_UPDATED = "last_updated"
-    METADATA = "metadata"
-    ATTACHMENTS = "attachments"  # PDF等附件列表
-
+from app.infrastructure.storage.lancedb.schema_parts.article_fields import (
+    ArticleFields,
+)
 
 def get_article_schema() -> pa.Schema:
-    """
-    获取 Article 表的 PyArrow Schema
-
-    字段说明:
-    - news_id: 主键，唯一标识符 (如 "20240520_cs_dosti_lecture")
-    - title: 新闻标题
-    - publish_date: 发布时间 (带时区的时间戳)
-    - url: 原始 URL
-    - source_site: 来源站点 (如 "计算机科学与工程学院")
-    - author: 作者
-    - tags: 标签列表
-    - content_markdown: 原始 Markdown 内容
-    - content_text: 从 Markdown 提取的纯文本 (用于向量化和全文搜索)
-    - title_embedding: 标题向量 (384 维)
-    - content_embedding: 正文向量 (1024 维)
-    - crawl_version: 爬取版本号 (递增)
-    - last_updated: 最后更新时间
-    - metadata: 额外元数据 (JSON 字符串格式)
-
-    Returns:
-        pa.Schema: PyArrow Schema 对象
-    """
+    """获取 Article 表的 PyArrow Schema"""
     return pa.schema(
         [
-            # 主键和基本信息
+
             pa.field(ArticleFields.NEWS_ID, pa.string(), nullable=False),
             pa.field(ArticleFields.TITLE, pa.string(), nullable=False),
             pa.field(
@@ -89,14 +27,14 @@ def get_article_schema() -> pa.Schema:
             pa.field(ArticleFields.URL, pa.string(), nullable=False),
             pa.field(ArticleFields.SOURCE_SITE, pa.string(), nullable=True),
             pa.field(ArticleFields.AUTHOR, pa.string(), nullable=True),
-            # 标签列表
+
             pa.field(ArticleFields.TAGS, pa.list_(pa.string()), nullable=True),
-            # 内容字段
+
             pa.field(ArticleFields.CONTENT_MARKDOWN, pa.string(), nullable=True),
             pa.field(ArticleFields.CONTENT_TEXT, pa.string(), nullable=True),
-            # 附件字段 (PDF等)
+
             pa.field(ArticleFields.ATTACHMENTS, pa.list_(pa.string()), nullable=True),
-            # 向量字段 (固定长度列表)
+
             pa.field(
                 ArticleFields.TITLE_EMBEDDING,
                 pa.list_(pa.float32(), TITLE_EMBEDDING_DIM),
@@ -107,28 +45,18 @@ def get_article_schema() -> pa.Schema:
                 pa.list_(pa.float32(), CONTENT_EMBEDDING_DIM),
                 nullable=False,
             ),
-            # 版本控制
+
             pa.field(ArticleFields.CRAWL_VERSION, pa.int32(), nullable=False),
             pa.field(
                 ArticleFields.LAST_UPDATED, pa.timestamp("us", tz="UTC"), nullable=False
             ),
-            # 元数据 (JSON 字符串)
+
             pa.field(ArticleFields.METADATA, pa.string(), nullable=True),
         ]
     )
 
-
-# =============================================================================
-# 数据模型类 (用于类型提示和验证)
-# =============================================================================
-
-
 class ArticleRecord:
-    """
-    Article 记录的数据类，用于类型提示和构建记录
-
-    注意: 这不是 ORM 模型，仅用于数据传输和验证
-    """
+    """Article 记录的数据类，用于类型提示和构建记录"""
 
     def __init__(
         self,
@@ -147,7 +75,7 @@ class ArticleRecord:
         last_updated: datetime | None = None,
         metadata: dict[str, Any] | None = None,
         attachments: list[str] | None = None,
-    ):
+    ) -> None:
         self.news_id = news_id
         self.title = title
         self.publish_date = publish_date
@@ -202,7 +130,6 @@ class ArticleRecord:
         elif isinstance(metadata_raw, dict):
             metadata = metadata_raw
 
-        # 处理可选字段的缺失值，提供默认值
         content_text = data.get(ArticleFields.CONTENT_TEXT, "") or ""
         title_embedding = data.get(ArticleFields.TITLE_EMBEDDING) or []
         content_embedding = data.get(ArticleFields.CONTENT_EMBEDDING) or []
@@ -224,27 +151,6 @@ class ArticleRecord:
             metadata=metadata,
             attachments=data.get(ArticleFields.ATTACHMENTS) or [],
         )
-
-
-# =============================================================================
-# 索引配置
-# =============================================================================
-
-
-class IndexConfig:
-    """索引配置常量"""
-
-    # 向量索引类型
-    VECTOR_INDEX_TYPE = "IVF_PQ"
-
-    # IVF 分区数 (建议为 sqrt(N) 到 N/50)
-    IVF_PARTITIONS = 256
-
-    # PQ 子量化器数量 (必须是向量维度的因数: 1024=2^10, 可选 64/128/256/512)
-    PQ_SUBQUANTIZERS = 64
-
-    # 全文索引字段
-    FTS_FIELDS = [ArticleFields.CONTENT_TEXT, ArticleFields.TITLE]
-
-    # 全文索引使用 Tantivy
-    FTS_USE_TANTIVY = True
+from app.infrastructure.storage.lancedb.schema_parts.index_config import (
+    IndexConfig,
+)

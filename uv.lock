@@ -1484,9 +1484,7 @@ source = { virtual = "." }
 dependencies = [
     { name = "bcrypt" },
     { name = "beautifulsoup4" },
-    { name = "cmd2" },
     { name = "fastapi" },
-    { name = "gnureadline", marker = "sys_platform == 'linux'" },
     { name = "httpx", extra = ["socks"] },
     { name = "lancedb" },
     { name = "litellm" },
@@ -1499,6 +1497,7 @@ dependencies = [
     { name = "python-multipart" },
     { name = "rich" },
     { name = "tenacity" },
+    { name = "typer" },
     { name = "uvicorn" },
     { name = "zhipuai" },
 ]
@@ -1520,9 +1519,7 @@ dev = [
 requires-dist = [
     { name = "bcrypt", specifier = ">=5.0.0" },
     { name = "beautifulsoup4", specifier = ">=4.13.0" },
-    { name = "cmd2", specifier = ">=3.4.0" },
     { name = "fastapi", specifier = ">=0.135.1" },
-    { name = "gnureadline", marker = "sys_platform == 'linux'", specifier = ">=8.3.3" },
     { name = "httpx", extras = ["socks"], specifier = ">=0.28.1" },
     { name = "huggingface-hub", marker = "extra == 'local'", specifier = ">=0.23.0" },
     { name = "lancedb", specifier = ">=0.29.0" },
@@ -1538,6 +1535,7 @@ requires-dist = [
     { name = "sentence-transformers", marker = "extra == 'local'", specifier = ">=2.2.0" },
     { name = "tenacity", specifier = ">=9.1.4" },
     { name = "torch", marker = "extra == 'local'", specifier = ">=2.2.0" },
+    { name = "typer", specifier = ">=0.21.0" },
     { name = "uvicorn", specifier = ">=0.41.0" },
     { name = "zhipuai", specifier = ">=2.1.5.20250825" },
 ]

@@ -2,7 +2,6 @@ from app.infrastructure.storage.sqlite.db_interface import DBInterface, logger
 from app.models.schemas import ResponseModel
 import json
 
-
 class DeviceMixin:
     def unbind_device(self: DBInterface, api_key: str, device_id: str) -> bool:
         """解绑特定设备"""
@@ -33,10 +32,7 @@ class DeviceMixin:
     def get_device_info(
         self: DBInterface, key_string: str, device_id: str
     ) -> ResponseModel:
-        """
-        检查 Key 的有效性，校验设备指纹，并增加请求计数。
-        获取该apikey能绑定的最多设备数以及目前已经绑定的设备。
-        """
+        """检查 Key 的有效性，校验设备指纹，并增加请求计数。"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
@@ -61,4 +57,3 @@ class DeviceMixin:
                     "bound_devices": json.loads(row["bound_devices"]),
                 },
             )
-

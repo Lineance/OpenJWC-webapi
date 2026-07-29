@@ -1,3 +1,5 @@
+
+from typing import Any
 from fastapi import APIRouter, Depends
 from app.models.schemas import ResponseModel
 from app.infrastructure.storage.sqlite.sql_db_service import db
@@ -12,12 +14,9 @@ logger = setup_logger("monitor_logs")
 
 router = APIRouter(prefix="/monitor", route_class=LoggingRoute)
 
-
 @router.get("/stats", response_model=ResponseModel)
-async def get_stats(admin_info: dict = Depends(verify_admin_token)):
-    """
-    获取服务系统信息
-    """
+async def get_stats(admin_info: dict = Depends(verify_admin_token)) -> Any:
+    """获取服务系统信息"""
     logger.info(f"Request ID: {admin_info['x_request_id']}")
     logger.info(f"Client Version: {admin_info['x_client_version']}")
     try:
@@ -44,12 +43,9 @@ async def get_stats(admin_info: dict = Depends(verify_admin_token)):
             },
         )
 
-
 @router.get("/sysinfo", response_model=ResponseModel)
-async def get_sysinfo(admin_info: dict = Depends(verify_admin_token)):
-    """
-    获取服务系统信息
-    """
+async def get_sysinfo(admin_info: dict = Depends(verify_admin_token)) -> Any:
+    """获取服务系统信息"""
     logger.info(f"Request ID: {admin_info['x_request_id']}")
     logger.info(f"Client Version: {admin_info['x_client_version']}")
     try:
@@ -57,4 +53,3 @@ async def get_sysinfo(admin_info: dict = Depends(verify_admin_token)):
     except Exception as e:
         logger.error(f"获取系统信息失败: {traceback.format_exc()}")
         return ResponseModel(data=None, msg=f"获取系统信息失败: {str(e)}")
-

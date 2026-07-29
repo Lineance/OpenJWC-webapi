@@ -7,9 +7,8 @@ from app.utils.logging_manager import setup_logger
 
 logger = setup_logger("submission_repository_logs")
 
-
 class SubmissionRepository:
-    def __init__(self, db_service: Any):
+    def __init__(self, db_service: Any) -> None:
         self._db = db_service
 
     def create(self, record: SubmissionRecord) -> bool:
@@ -53,7 +52,7 @@ class SubmissionRepository:
             attachments = row_dict.get("attachments") or "[]"
             if isinstance(attachments, str):
                 attachments = json.loads(attachments)
-            return SubmissionRecord(
+            return SubmissionRecord.from_storage(
                 submission_id=str(row_dict["id"]),
                 submitter_id=str(row_dict.get("submitter_id") or ""),
                 label=str(row_dict.get("label") or ""),

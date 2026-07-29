@@ -16,7 +16,6 @@ SQLITE_USER_STATE_TABLES = [
     "submissions",
 ]
 
-
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Run real smoke check for Rust crawler pipeline"
@@ -40,25 +39,20 @@ def parse_args() -> argparse.Namespace:
     )
     return parser.parse_args()
 
-
 def _print_ok(message: str) -> None:
     print(f"[SMOKE][OK] {message}")
-
 
 def _print_step(message: str) -> None:
     print(f"[SMOKE][STEP] {message}")
 
-
 def _print_fail(message: str) -> None:
     print(f"[SMOKE][FAIL] {message}")
-
 
 def _table_exists(cursor: sqlite3.Cursor, table: str) -> bool:
     cursor.execute(
         "SELECT 1 FROM sqlite_master WHERE type='table' AND name = ? LIMIT 1", (table,)
     )
     return cursor.fetchone() is not None
-
 
 def snapshot_sqlite_user_state() -> dict[str, int]:
     snapshot: dict[str, int] = {}
@@ -72,13 +66,11 @@ def snapshot_sqlite_user_state() -> dict[str, int]:
             snapshot[table] = int(cursor.fetchone()[0])
     return snapshot
 
-
 def snapshot_lancedb_state() -> dict[str, int]:
     from app.infrastructure.storage.lancedb.repository import get_article_repository
 
     repo = get_article_repository()
     return {"articles": int(repo.count())}
-
 
 def validate_binary() -> None:
     if not CRAWLER_BIN.exists():
@@ -88,7 +80,6 @@ def validate_binary() -> None:
     if not CRAWLER_BIN.stat().st_mode & 0o111:
         raise PermissionError(f"Crawler binary is not executable: {CRAWLER_BIN}")
 
-
 def validate_output_json() -> list[dict[str, Any]]:
     if not NOTICE_JSON.exists():
         raise FileNotFoundError(f"Crawler output not found: {NOTICE_JSON}")
@@ -97,7 +88,6 @@ def validate_output_json() -> list[dict[str, Any]]:
     if not isinstance(data, list):
         raise ValueError("Crawler output JSON must be a list")
     return [item for item in data if isinstance(item, dict)]
-
 
 def run_real_smoke(strict: bool, verbose: bool) -> int:
     from app.infrastructure.crawler import rust_crawler_wrapper as crawler
@@ -145,7 +135,6 @@ def run_real_smoke(strict: bool, verbose: bool) -> int:
             print(f"[SMOKE][DATA] sqlite_after={sqlite_after}")
             print(f"[SMOKE][DATA] lancedb_after={lancedb_after}")
 
-        # SQLite user-state should not be modified by crawler smoke.
         sqlite_changed = {
             key: (sqlite_before[key], sqlite_after.get(key, -1))
             for key in sqlite_before
@@ -156,7 +145,6 @@ def run_real_smoke(strict: bool, verbose: bool) -> int:
                 f"SQLite user-state changed unexpectedly: {sqlite_changed}"
             )
 
-        # LanceDB invariants
         if lancedb_after["articles"] < lancedb_before["articles"]:
             raise AssertionError(
                 "LanceDB articles count regressed: "
@@ -202,11 +190,9 @@ def run_real_smoke(strict: bool, verbose: bool) -> int:
         _print_fail(f"{type(exc).__name__}: {exc}")
         return 1
 
-
 def main() -> int:
     args = parse_args()
     return run_real_smoke(strict=args.strict, verbose=args.verbose)
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from httpx import AsyncClient
 
@@ -8,7 +10,6 @@ from app.infrastructure.storage.lancedb.schema import (
     CONTENT_EMBEDDING_DIM,
     TITLE_EMBEDDING_DIM,
 )
-
 
 async def _admin_login(
     client: AsyncClient,
@@ -24,7 +25,6 @@ async def _admin_login(
     assert payload["msg"] == "登录成功"
     return payload["data"]["token"]
 
-
 async def _register_and_login_client(
     client: AsyncClient,
     username: str,
@@ -32,11 +32,8 @@ async def _register_and_login_client(
     device_id: str,
     admin_token: str | None = None,
 ) -> str:
-    """注册并登录客户端用户（需要管理员审核）
+    """注册并登录客户端用户（需要管理员审核）"""
 
-    如果提供了admin_token，会自动进行管理员审核流程
-    """
-    # 提交注册申请
     register_resp = await client.post(
         "/api/v2/client/auth/register",
         json={
@@ -48,9 +45,8 @@ async def _register_and_login_client(
     assert register_resp.status_code == 200
     assert "等待管理员审核" in register_resp.json()["msg"]
 
-    # 如果提供了管理员token，进行审核
     if admin_token:
-        # 获取待审核的注册请求
+
         list_resp = await client.get(
             "/api/v2/admin/user-registrations",
             headers={"Authorization": f"Bearer {admin_token}"},
@@ -58,7 +54,6 @@ async def _register_and_login_client(
         )
         assert list_resp.status_code == 200
 
-        # 找到对应的注册请求
         registration = None
         for user in list_resp.json()["data"]["users"]:
             if user["username"] == username:
@@ -66,7 +61,6 @@ async def _register_and_login_client(
                 break
         assert registration is not None
 
-        # 批准注册申请
         approve_resp = await client.post(
             f"/api/v2/admin/user-registrations/{registration['id']}/review",
             headers={"Authorization": f"Bearer {admin_token}"},
@@ -74,7 +68,6 @@ async def _register_and_login_client(
         )
         assert approve_resp.status_code == 200
 
-    # 登录
     login_resp = await client.post(
         "/api/v2/client/auth/login",
         headers={"X-Device-ID": device_id},
@@ -87,7 +80,6 @@ async def _register_and_login_client(
     assert login_resp.status_code == 200
     assert login_resp.json()["msg"] == "登录成功"
     return login_resp.json()["data"]["token"]
-
 
 @pytest.mark.asyncio
 async def test_submission_review_and_notice_visibility_flow(
@@ -170,7 +162,7 @@ async def test_submission_review_and_notice_visibility_flow(
         message = "ok"
 
     class DummyPipeline:
-        def process_one(self, doc):
+        def process_one(self, doc: Any) -> Any:
             payload = dict(doc)
             payload[ArticleFields.TITLE_EMBEDDING] = [0.0] * TITLE_EMBEDDING_DIM
             payload[ArticleFields.CONTENT_EMBEDDING] = [0.0] * CONTENT_EMBEDDING_DIM

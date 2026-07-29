@@ -1,3 +1,5 @@
+
+from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, status
 from app.models.v2_schemas import V2Response, V2DetailResponse, UnbindRequest
 from app.infrastructure.storage.sqlite.sql_db_service import db
@@ -9,11 +11,10 @@ logger = setup_logger("v2_device_logs")
 
 router = APIRouter(prefix="/device", route_class=LoggingRoute)
 
-
 @router.get("", response_model=V2Response)
 async def get_device_list(
     current_user: dict = Depends(verify_client_token),
-):
+) -> Any:
     """获取当前账号登录的设备列表"""
     devices = db.get_user_devices(user_id=current_user["user_id"])
     return V2Response(
@@ -21,12 +22,11 @@ async def get_device_list(
         data={"devices": devices},
     )
 
-
 @router.post("/unbind", response_model=V2DetailResponse)
 async def unbind_device(
     body: UnbindRequest,
     current_user: dict = Depends(verify_client_token),
-):
+) -> Any:
     """解绑设备（目标设备ID从请求体传入，与鉴权用的 X-Device-ID 分离）"""
     success = db.unbind_user_device(
         user_id=current_user["user_id"],

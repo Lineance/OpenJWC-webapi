@@ -23,13 +23,15 @@
 OpenJWC-WebAPI/
 ├── main.py                 # FastAPI应用主入口
 ├── app/
-│   ├── api/v1/             # API路由
-│   │   ├── client/        # 客户端API
-│   │   └── admin/         # 管理员API
-│   ├── core/              # 核心配置
-│   ├── models/            # 数据模型
-│   ├── services/          # 业务逻辑
-│   └── utils/             # 工具函数
+│   ├── api/v1/             # v1 API 路由
+│   ├── api/v2/             # v2 API 路由
+│   ├── application/        # 应用服务
+│   ├── domain/             # 领域模型与服务
+│   ├── infrastructure/     # 存储、检索、爬虫和 Agent
+│   ├── cli/                # Typer 命令行客户端
+│   ├── core/               # 核心配置
+│   ├── models/             # API 数据模型
+│   └── utils/              # 通用工具
 ├── data/                  # 数据目录
 ├── bin/                   # 二进制文件目录
 ├── logs/                  # 日志目录
@@ -106,6 +108,19 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 # 生产模式运行
 uvicorn main:app --host 0.0.0.0 --port 8000
 ```
+
+### 命令行客户端
+
+所有面向前端的 v1/v2 API 均有对应 CLI 命令：
+
+```bash
+uv run openjwc --help
+uv run openjwc --token "$OPENJWC_TOKEN" --device-id "$OPENJWC_DEVICE_ID" \
+  client-v1 notices --page 1 --size 20
+uv run openjwc --admin-token "$OPENJWC_ADMIN_TOKEN" admin-v1 settings
+```
+
+本地运维命令位于 `uv run openjwc ops --help`。完整命令映射、迁移说明和重构结构见 [`docs/REFACTORING.md`](docs/REFACTORING.md)。
 
 ## API文档
 
@@ -201,9 +216,9 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 ### 代码规范
 
 - 使用异步编程模式
-- 遵循PEP 8代码规范
-- 使用类型注解
-- 编写详细的文档字符串
+- 遵循 PEP 8 与 `AGENTS.md` 中的项目规约
+- 为所有函数参数和返回值提供类型标注
+- 使用 `uv run python tools/quality_audit.py` 检查结构、类型和注释
 
 ### 生产环境配置
 

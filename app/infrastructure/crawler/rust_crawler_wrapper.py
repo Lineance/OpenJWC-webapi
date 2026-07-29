@@ -1,4 +1,5 @@
-# app/worker.py
+
+from typing import Any
 import subprocess
 import time
 from datetime import date, timedelta
@@ -13,13 +14,11 @@ logger = setup_logger("crawler_logs")
 adapter = CrawlerAdapter()
 pipeline = IngestionPipeline()
 
-
 def _get_crawler_interval_minutes() -> int:
     setting_value = db.get_system_setting("crawler_interval_minutes")
     return int(setting_value or "480")
 
-
-def sync_search_index():
+def sync_search_index() -> Any:
     """将爬虫结果通过 ingestion pipeline 同步到 LanceDB 检索索引"""
     logger.info("开始进行 LanceDB 检索索引同步...")
 
@@ -31,8 +30,7 @@ def sync_search_index():
     except Exception as e:
         logger.exception(f"LanceDB 检索索引同步失败: {e}")
 
-
-def execute_crawling_task():
+def execute_crawling_task() -> Any:
     """执行一次爬取任务，返回爬虫命令的执行结果"""
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     cmd = [
@@ -54,16 +52,14 @@ def execute_crawling_task():
     logger.info("Rust 爬虫运行结束。")
     return result
 
-
-def process_crawling_result():
+def process_crawling_result() -> Any:
     """处理爬虫结果，将数据同步到 LanceDB 检索索引"""
     if NOTICE_JSON.exists():
         sync_search_index()
     else:
         logger.error("未找到 output.json，爬虫可能未成功输出文件。")
 
-
-def run_crawler_job():
+def run_crawler_job() -> Any:
     """执行完整的：爬取 -> 存 JSON -> 同步 LanceDB 流程"""
     logger.info("开始执行定时爬虫任务")
     try:
@@ -74,7 +70,6 @@ def run_crawler_job():
     except Exception:
         logger.exception("发生未知错误!")
     logger.info("爬虫任务环节结束\n")
-
 
 if __name__ == "__main__":
     logger.info("后台爬虫服务已启动...")

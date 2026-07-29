@@ -1,9 +1,3 @@
-"""Embedding provider factory.
-
-Selects cloud or local embedder implementations with lazy imports so the
-default cloud path does not require local model dependencies.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -13,9 +7,7 @@ DEFAULT_EMBEDDING_PROVIDER: Literal["cloud", "local"] = "cloud"
 
 logger = logging.getLogger(__name__)
 
-
 class EmbeddingClient(Protocol):
-    """Common embedder interface used by ingestion and retrieval."""
 
     def embed_titles(
         self, texts: list[str], batch_size: int = 32
@@ -36,9 +28,7 @@ class EmbeddingClient(Protocol):
 
     def get_dimensions(self) -> dict[str, Any]: ...
 
-
 EmbeddingProvider = Literal["cloud", "local"]
-
 
 def _normalize_provider(provider: str | None) -> EmbeddingProvider:
     selected = (provider or DEFAULT_EMBEDDING_PROVIDER).strip().lower()
@@ -46,12 +36,7 @@ def _normalize_provider(provider: str | None) -> EmbeddingProvider:
         raise ValueError(f"Unsupported embedding provider: {provider}")
     return cast("EmbeddingProvider", selected)
 
-
 def get_embedder(provider: str | None = None) -> EmbeddingClient:
-    """Get embedder by provider.
-
-    Defaults to cloud provider.
-    """
     selected = _normalize_provider(provider)
 
     if selected == "cloud":
@@ -69,13 +54,11 @@ def get_embedder(provider: str | None = None) -> EmbeddingClient:
 
     return cast("EmbeddingClient", get_local_embedder())
 
-
 def embed_title(text: str, provider: str | None = None) -> list[float]:
     embedder = get_embedder(provider)
     result = embedder.embed_titles([text])
     dims = embedder.get_dimensions().get("title", 384)
     return result[0] if result else [0.0] * int(dims)
-
 
 def embed_content(text: str, provider: str | None = None) -> list[float]:
     embedder = get_embedder(provider)
@@ -83,14 +66,11 @@ def embed_content(text: str, provider: str | None = None) -> list[float]:
     dims = embedder.get_dimensions().get("content", 1024)
     return result[0] if result else [0.0] * int(dims)
 
-
 def embed_query(text: str, provider: str | None = None) -> list[float]:
     embedder = get_embedder(provider)
     return embedder.embed_query(text)
 
-
 def reset_embedder(provider: str | None = None) -> None:
-    """Reset provider singleton. Intended for tests."""
     selected = _normalize_provider(provider)
 
     if selected == "cloud":

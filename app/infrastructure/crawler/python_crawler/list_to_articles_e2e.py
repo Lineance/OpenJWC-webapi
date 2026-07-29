@@ -8,7 +8,6 @@ import time
 from pathlib import Path
 from typing import Any
 
-# Fix Windows console GBK encoding issue for Unicode characters (✓, ✗, etc.)
 if sys.platform == "win32":
     import io
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
@@ -23,7 +22,6 @@ else:
 
 ArticleUrlCrawler = _article_mod.ArticleUrlCrawler
 ListIncrementalCrawler = _list_mod.ListIncrementalCrawler
-
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="List URL incremental crawler e2e")
@@ -68,7 +66,6 @@ def parse_args() -> argparse.Namespace:
     )
     return parser.parse_args()
 
-
 def _parse_json_overrides(raw: str | None, arg_name: str) -> dict[str, Any]:
     if not raw:
         return {}
@@ -80,7 +77,6 @@ def _parse_json_overrides(raw: str | None, arg_name: str) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise ValueError(f"{arg_name} must be a JSON object")
     return data
-
 
 async def run_e2e(args: argparse.Namespace) -> dict[str, Any]:
     start = time.time()
@@ -134,11 +130,10 @@ async def run_e2e(args: argparse.Namespace) -> dict[str, Any]:
                 "browser": browser_overrides,
             }
 
-        # Load website config to get source name
     source_name = None
     if args.website:
         website_cfg_path = None
-        # repo_root is parents[3] because we need D:\SEU-WuHub not D:\SEU-WuHub\backend
+
         repo_root = Path(__file__).resolve().parents[3]
         config_dir = Path(args.config_dir).resolve() if args.config_dir else repo_root / "config_data"
         candidates = [
@@ -165,7 +160,6 @@ async def run_e2e(args: argparse.Namespace) -> dict[str, Any]:
         )
         results = await article_crawler.crawl_articles(incremental_urls, run_config=run_config)
 
-    # Add source field to each result if website config has source name
     if source_name:
         for item in results:
             if "source" not in item or not item["source"]:
@@ -188,7 +182,6 @@ async def run_e2e(args: argparse.Namespace) -> dict[str, Any]:
 
     return summary
 
-
 def main() -> None:
     args = parse_args()
     summary = asyncio.run(run_e2e(args))
@@ -208,11 +201,9 @@ def main() -> None:
         )
     )
 
-
 def _write_output(path: str, payload: str) -> None:
     with open(path, "w", encoding="utf-8") as f:
         f.write(payload)
-
 
 if __name__ == "__main__":
     main()

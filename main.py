@@ -1,20 +1,20 @@
+from collections.abc import AsyncIterator
+
 from fastapi import FastAPI
 from app.api.v1.api_router import client_router, admin_router
 from app.api.v2.api_router import v2_client_router, v2_admin_router
-from app.utils.openjwc_cli import SQLCLI
+from app.cli.app import run
 from app.utils.logging_manager import setup_logger
 from contextlib import asynccontextmanager
 from app.utils.ping_check import diagnose_network_environment
 from app.infrastructure.storage.sqlite.sql_db_service import db
 import os
 
-
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info("正在启动服务...")
     db.sync_admins_from_config()
 
-    # 启动时检查 article_order 同步（label_stats 在 _get_synced_connection 中一起重建）
     from app.infrastructure.storage.lancedb.repository import get_article_repository
     try:
         repo = get_article_repository()
@@ -29,7 +29,6 @@ async def lifespan(app: FastAPI):
     yield
     logger.info("服务正在关闭...")
 
-
 ROOT_DIR = os.getcwd()
 DATA_DIR = os.path.join(ROOT_DIR, "data")
 BIN_DIR = os.path.join(ROOT_DIR, "bin")
@@ -42,11 +41,9 @@ app.include_router(admin_router, prefix="/api/v1", tags=["管理员", "控制面
 app.include_router(v2_client_router, prefix="/api/v2", tags=["客户端 v2"])
 app.include_router(v2_admin_router, prefix="/api/v2", tags=["管理员 v2"])
 
-
 @app.get("/")
-def root():
+def root() -> dict[str, str]:
     return {"message": "Server is running!"}
 
-
 if __name__ == "__main__":
-    SQLCLI().cmdloop()
+    run()

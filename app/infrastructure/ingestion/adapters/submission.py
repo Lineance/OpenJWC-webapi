@@ -4,9 +4,8 @@ from typing import Any
 from app.domain.submission.models import SubmissionRecord
 from app.infrastructure.storage.lancedb import ArticleFields
 
-
 class SubmissionAdapter:
-    def __init__(self, source_site: str = "用户投稿"):
+    def __init__(self, source_site: str = "用户投稿") -> None:
         self._source_site = source_site
 
     def convert_one(self, record: SubmissionRecord, review: str = "") -> dict[str, Any]:

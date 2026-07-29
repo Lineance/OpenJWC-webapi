@@ -1,12 +1,9 @@
-"""URL fetch tool with domain allowlist and retry."""
-
 from typing import Any
 from urllib.parse import urlparse
 
 import httpx
 
 from .protocol import ToolResult
-
 
 class FetchTool:
     name = "web_url_fetch"
@@ -54,7 +51,7 @@ class FetchTool:
                             "snippet": snippet,
                         },
                     )
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 last_error = str(exc)
 
         return ToolResult(ok=False, content={}, error=last_error or "fetch failed")

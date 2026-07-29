@@ -1,3 +1,5 @@
+
+from typing import Any
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 
@@ -11,11 +13,10 @@ logger = setup_logger("chat_api_logs")
 
 router = APIRouter(prefix="/chat", route_class=LoggingRoute)
 
-
 @router.post("")
 async def chat_with_notice(
     request: ChatRequest, auth: dict = Depends(verify_client_token)
-):
+) -> Any:
     logger.info(f"接受到LLM聊天请求: user={auth.get('username')}...")
     if request.stream:
         logger.info("尝试流式输出")

@@ -1,3 +1,5 @@
+
+from typing import Any
 from asyncio import to_thread
 from typing import Annotated
 
@@ -13,10 +15,8 @@ logger = setup_logger("admin_user_management_logs")
 
 router = APIRouter(prefix="/users", route_class=LoggingRoute)
 
-
 class SetUserActiveRequest(BaseModel):
     is_active: bool
-
 
 @router.get("", response_model=ResponseModel)
 async def get_users(
@@ -24,7 +24,7 @@ async def get_users(
     page: int = Query(1, ge=1, description="返回的页码"),
     size: int = Query(20, ge=1, description="每页返回的数量，最大不超过50条"),
     admin_info: dict = Depends(verify_admin_token),
-):
+) -> Any:
     logger.info(f"Request ID: {admin_info['x_request_id']}")
     logger.info(f"Client Version: {admin_info['x_client_version']}")
     offset = size * (page - 1)
@@ -40,13 +40,12 @@ async def get_users(
         },
     )
 
-
 @router.post("/{id}/status", response_model=ResponseModel)
 async def set_user_active_status(
     request: SetUserActiveRequest,
     id: str = Path(description="目标用户ID"),
     admin_info: dict = Depends(verify_admin_token),
-):
+) -> Any:
     logger.info(f"Request ID: {admin_info['x_request_id']}")
     logger.info(f"Client Version: {admin_info['x_client_version']}")
     from app.infrastructure.storage.sqlite.sql_db_service import db
@@ -57,12 +56,11 @@ async def set_user_active_status(
         return ResponseModel(msg="修改失败", data={})
     return ResponseModel(msg="修改成功", data={})
 
-
 @router.delete("/{id}", response_model=ResponseModel)
 async def delete_user(
     id: str = Path(description="目标用户ID"),
     admin_info: dict = Depends(verify_admin_token),
-):
+) -> Any:
     logger.info(f"Request ID: {admin_info['x_request_id']}")
     logger.info(f"Client Version: {admin_info['x_client_version']}")
     from app.infrastructure.storage.sqlite.sql_db_service import db

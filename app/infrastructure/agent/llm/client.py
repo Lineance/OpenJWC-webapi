@@ -1,5 +1,3 @@
-"""LLM client used to decide tool actions for the agent."""
-
 import json
 import logging
 import os
@@ -11,7 +9,6 @@ from litellm import acompletion
 from app.infrastructure.agent.core.parser import parse_action_detailed
 
 logger = logging.getLogger(__name__)
-
 
 class LLMDecisionClient:
     def __init__(
@@ -99,7 +96,7 @@ class LLMDecisionClient:
                 max_tokens=min(self._planner_retry_max_tokens, self._max_tokens),
                 timeout=self._timeout_seconds,
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("Planner correction retry failed: %s", exc)
             return None
 
@@ -175,7 +172,7 @@ class LLMDecisionClient:
                 max_tokens=self._max_tokens,
                 timeout=self._timeout_seconds,
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning(
                 "LLM planning failed, fallback to heuristic planner: %s", exc
             )
@@ -222,25 +219,6 @@ class LLMDecisionClient:
         history: list[dict[str, Any]],
         observations: list[dict[str, Any]],
     ) -> str | None:
-        """Generate the final user-facing answer from multi-step observations.
-
-        This method calls the underlying LLM with the given ``query``, a truncated
-        interaction ``history``, and the collected ``observations`` from previous
-        tool calls. The model is instructed to base its answer only on the
-        provided observations and to avoid fabricating unsupported details.
-
-        When the available observations do not provide enough grounded
-        information to confidently answer the query (that is, when there is
-        *insufficient evidence*), the LLM is asked to explicitly state its
-        uncertainty and suggest an appropriate follow-up query instead of
-        pretending to have a definitive answer. Such uncertainty-aware answers
-        are still returned as a normal ``str``.
-
-        Returns:
-            str | None: The final natural-language answer from the LLM, or
-            ``None`` if the LLM call fails, times out, returns no choices, or
-            produces only empty/whitespace content.
-        """
         system_prompt = (
             "You are a campus assistant. Generate the final answer based only on observations. "
             "If evidence is insufficient, state uncertainty clearly and suggest a next query. "
@@ -274,13 +252,12 @@ class LLMDecisionClient:
                         "content": json.dumps(payload, ensure_ascii=False),
                     },
                 ],
-                # Use a low temperature for final answers to keep them deterministic and
-                # closely grounded in the given observations, avoiding creative deviations.
+
                 temperature=min(self._temperature, 0.3),
                 max_tokens=self._max_tokens,
                 timeout=self._timeout_seconds,
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning(
                 "LLM final answer generation failed, fallback to template: %s", exc
             )

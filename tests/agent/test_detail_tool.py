@@ -1,16 +1,16 @@
+
+from typing import Any
 import pytest
 from app.infrastructure.agent.tools.detail import DetailTool
-
 
 class FakeRepo:
     def __init__(self, record: dict | None) -> None:
         self._record = record
 
-    def get(self, news_id: str):
+    def get(self, news_id: str) -> Any:
         if self._record and self._record.get("news_id") == news_id:
             return self._record
         return None
-
 
 @pytest.mark.asyncio
 async def test_detail_tool_returns_article_payload() -> None:
@@ -41,7 +41,6 @@ async def test_detail_tool_returns_article_payload() -> None:
     assert result.content["attachments"] == ["a.pdf"]
     assert result.content["metadata"]["dept"] == "jwc"
     assert result.content["content_text"] == "正文内容"
-
 
 @pytest.mark.asyncio
 async def test_detail_tool_requires_news_id() -> None:

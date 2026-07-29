@@ -1,0 +1,490 @@
+.
+├── admins.json
+├── AGENTS.md
+├── app
+│   ├── __init__.py
+│   ├── api
+│   │   ├── __init__.py
+│   │   ├── dependencies.py
+│   │   ├── logging_route.py
+│   │   ├── v1
+│   │   │   ├── __init__.py
+│   │   │   ├── admin
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── apikeys.py
+│   │   │   │   ├── auth.py
+│   │   │   │   ├── logs.py
+│   │   │   │   ├── monitor.py
+│   │   │   │   ├── notices.py
+│   │   │   │   ├── settings.py
+│   │   │   │   └── submission.py
+│   │   │   ├── api_router.py
+│   │   │   └── client
+│   │   │       ├── __init__.py
+│   │   │       ├── chat.py
+│   │   │       ├── device.py
+│   │   │       ├── motto.py
+│   │   │       ├── notices.py
+│   │   │       ├── register.py
+│   │   │       ├── search.py
+│   │   │       └── submission.py
+│   │   └── v2
+│   │       ├── __init__.py
+│   │       ├── admin
+│   │       │   ├── __init__.py
+│   │       │   ├── user_management.py
+│   │       │   └── user_registration.py
+│   │       ├── api_router.py
+│   │       └── client
+│   │           ├── __init__.py
+│   │           ├── auth.py
+│   │           └── device.py
+│   ├── application
+│   │   ├── __init__.py
+│   │   ├── chat
+│   │   │   ├── __init__.py
+│   │   │   └── ai_service.py
+│   │   ├── motto
+│   │   │   ├── __init__.py
+│   │   │   └── motto_service.py
+│   │   ├── submission
+│   │   │   ├── __init__.py
+│   │   │   └── submission_service.py
+│   │   └── user_registration
+│   │       ├── __init__.py
+│   │       └── user_registration_service.py
+│   ├── cli
+│   │   ├── __init__.py
+│   │   ├── app.py
+│   │   ├── client.py
+│   │   ├── commands
+│   │   │   ├── __init__.py
+│   │   │   ├── admin_v1_content.py
+│   │   │   ├── admin_v1_system.py
+│   │   │   ├── admin_v1_users.py
+│   │   │   ├── admin_v2.py
+│   │   │   ├── client_v1_account.py
+│   │   │   ├── client_v1_content.py
+│   │   │   └── client_v2.py
+│   │   ├── config.py
+│   │   ├── manifest.py
+│   │   ├── ops.py
+│   │   ├── output.py
+│   │   └── parsing.py
+│   ├── core
+│   │   ├── config.py
+│   │   └── security.py
+│   ├── domain
+│   │   ├── __init__.py
+│   │   ├── submission
+│   │   │   ├── __init__.py
+│   │   │   ├── model_parts
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── draft.py
+│   │   │   │   ├── record.py
+│   │   │   │   └── status.py
+│   │   │   ├── models.py
+│   │   │   └── service.py
+│   │   └── user_registration
+│   │       ├── __init__.py
+│   │       ├── models.py
+│   │       └── service.py
+│   ├── infrastructure
+│   │   ├── __init__.py
+│   │   ├── agent
+│   │   │   ├── __init__.py
+│   │   │   ├── chat
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── ai_service.py
+│   │   │   │   └── prompt_engine.py
+│   │   │   ├── config.py
+│   │   │   ├── core
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── agent.py
+│   │   │   │   ├── agent_mixins
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   ├── agent_stream_mixin.py
+│   │   │   │   │   ├── answer_composition_mixin.py
+│   │   │   │   │   ├── intent_analysis_mixin.py
+│   │   │   │   │   ├── observation_mixin.py
+│   │   │   │   │   └── tool_selection_mixin.py
+│   │   │   │   └── parser.py
+│   │   │   ├── events
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── stream.py
+│   │   │   │   └── types.py
+│   │   │   ├── llm
+│   │   │   │   ├── __init__.py
+│   │   │   │   └── client.py
+│   │   │   ├── memory
+│   │   │   │   ├── __init__.py
+│   │   │   │   └── buffer.py
+│   │   │   ├── prompts
+│   │   │   │   ├── react.jinja2
+│   │   │   │   ├── system.jinja2
+│   │   │   │   └── tools.jinja2
+│   │   │   └── tools
+│   │   │       ├── __init__.py
+│   │   │       ├── detail.py
+│   │   │       ├── fetch.py
+│   │   │       ├── protocol.py
+│   │   │       ├── registry.py
+│   │   │       ├── search.py
+│   │   │       └── sql.py
+│   │   ├── crawler
+│   │   │   ├── python_crawler
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── article_crawler_mixins
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   ├── article_config_mixin.py
+│   │   │   │   │   ├── article_content_mixin.py
+│   │   │   │   │   ├── article_crawl_mixin.py
+│   │   │   │   │   ├── article_format_mixin.py
+│   │   │   │   │   └── article_metadata_mixin.py
+│   │   │   │   ├── article_url_crawler.py
+│   │   │   │   ├── crawl4ai_config_utils.py
+│   │   │   │   ├── list_crawler_mixins
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   ├── list_config_mixin.py
+│   │   │   │   │   ├── list_page_crawl_mixin.py
+│   │   │   │   │   ├── list_state_mixin.py
+│   │   │   │   │   └── list_website_crawl_mixin.py
+│   │   │   │   ├── list_incremental_crawler.py
+│   │   │   │   ├── list_to_articles_e2e.py
+│   │   │   │   └── README.md
+│   │   │   └── rust_crawler_wrapper.py
+│   │   ├── ingestion
+│   │   │   ├── __init__.py
+│   │   │   ├── adapters
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── crawler.py
+│   │   │   │   ├── crawler_adapter_mixins
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   ├── crawler_conversion_mixin.py
+│   │   │   │   │   ├── crawler_file_mixin.py
+│   │   │   │   │   └── crawler_validation_mixin.py
+│   │   │   │   └── submission.py
+│   │   │   ├── dedup.py
+│   │   │   ├── dedup_parts
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── result.py
+│   │   │   │   ├── service.py
+│   │   │   │   └── simhash.py
+│   │   │   ├── embedder
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── cache_paths.py
+│   │   │   │   ├── clouds_embedder.py
+│   │   │   │   ├── embedder_mixins
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   ├── embed_operations_mixin.py
+│   │   │   │   │   └── embed_quantization_mixin.py
+│   │   │   │   ├── factory.py
+│   │   │   │   ├── local_embedder.py
+│   │   │   │   ├── model_loader.py
+│   │   │   │   └── quantized.py
+│   │   │   ├── embedder_provider.py
+│   │   │   ├── normalizer_parts
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── content.py
+│   │   │   │   ├── datetime.py
+│   │   │   │   ├── html.py
+│   │   │   │   ├── markdown.py
+│   │   │   │   └── text.py
+│   │   │   ├── normalizers.py
+│   │   │   ├── pipeline.py
+│   │   │   ├── pipeline_mixins
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── batch_process_mixin.py
+│   │   │   │   ├── models.py
+│   │   │   │   ├── pipeline_stage_mixin.py
+│   │   │   │   └── single_process_mixin.py
+│   │   │   ├── tag_initializer.py
+│   │   │   ├── tag_initializer_mixins
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── tag_initialization_data_mixin.py
+│   │   │   │   ├── tag_initialization_run_mixin.py
+│   │   │   │   └── tag_initialization_verify_mixin.py
+│   │   │   ├── tag_matcher.py
+│   │   │   ├── tag_matcher_mixins
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── batch_tag_match_mixin.py
+│   │   │   │   ├── models.py
+│   │   │   │   ├── single_tag_match_mixin.py
+│   │   │   │   └── tag_embedding_mixin.py
+│   │   │   ├── validator_parts
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── content.py
+│   │   │   │   ├── document.py
+│   │   │   │   ├── result.py
+│   │   │   │   └── url.py
+│   │   │   └── validators.py
+│   │   ├── retrieval
+│   │   │   ├── __init__.py
+│   │   │   ├── engine.py
+│   │   │   ├── engine_mixins
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── advanced_search_mixin.py
+│   │   │   │   ├── basic_search_mixin.py
+│   │   │   │   ├── document_search_mixin.py
+│   │   │   │   └── semantic_search_mixin.py
+│   │   │   ├── schema
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── article.py
+│   │   │   │   └── article_query.py
+│   │   │   ├── store.py
+│   │   │   ├── store_mixins
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── store_hybrid_mixin.py
+│   │   │   │   ├── store_index_mixin.py
+│   │   │   │   ├── store_search_mixin.py
+│   │   │   │   └── store_write_mixin.py
+│   │   │   └── utils
+│   │   │       ├── embedding.py
+│   │   │       └── embedding_mixins
+│   │   │           ├── __init__.py
+│   │   │           └── embedding_math_mixin.py
+│   │   └── storage
+│   │       ├── lancedb
+│   │       │   ├── __init__.py
+│   │       │   ├── article_repository_mixins
+│   │       │   │   ├── __init__.py
+│   │       │   │   ├── article_bulk_mixin.py
+│   │       │   │   ├── article_find_mixin.py
+│   │       │   │   ├── article_read_mixin.py
+│   │       │   │   ├── article_upsert_mixin.py
+│   │       │   │   └── article_write_mixin.py
+│   │       │   ├── connection.py
+│   │       │   ├── connection_mixins
+│   │       │   │   ├── __init__.py
+│   │       │   │   ├── connection_index_mixin.py
+│   │       │   │   └── connection_management_mixin.py
+│   │       │   ├── error_parts
+│   │       │   │   ├── __init__.py
+│   │       │   │   ├── database.py
+│   │       │   │   ├── repository.py
+│   │       │   │   └── validation.py
+│   │       │   ├── exceptions.py
+│   │       │   ├── guard.py
+│   │       │   ├── repository.py
+│   │       │   ├── schema.py
+│   │       │   ├── schema_parts
+│   │       │   │   ├── __init__.py
+│   │       │   │   ├── article_fields.py
+│   │       │   │   └── index_config.py
+│   │       │   ├── tag_parts
+│   │       │   │   ├── __init__.py
+│   │       │   │   ├── tag_categories.py
+│   │       │   │   └── tag_record.py
+│   │       │   ├── tag_repository.py
+│   │       │   ├── tag_repository_mixins
+│   │       │   │   ├── __init__.py
+│   │       │   │   ├── tag_find_mixin.py
+│   │       │   │   ├── tag_index_mixin.py
+│   │       │   │   ├── tag_stats_mixin.py
+│   │       │   │   └── tag_write_mixin.py
+│   │       │   └── tag_schema.py
+│   │       └── sqlite
+│   │           ├── __init__.py
+│   │           ├── db_interface.py
+│   │           ├── mixins
+│   │           │   ├── __init__.py
+│   │           │   ├── admin_mixin.py
+│   │           │   ├── device_mixin.py
+│   │           │   ├── motto_mixin.py
+│   │           │   ├── user_mixin.py
+│   │           │   └── validation_mixin.py
+│   │           ├── notice_repository.py
+│   │           ├── sql_db_service.py
+│   │           ├── submission_repository.py
+│   │           └── user_registration_repository.py
+│   ├── models
+│   │   ├── __init__.py
+│   │   ├── base.py
+│   │   ├── models.py
+│   │   ├── schemas.py
+│   │   ├── v1
+│   │   │   ├── __init__.py
+│   │   │   ├── requests
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── apikey.py
+│   │   │   │   ├── chat.py
+│   │   │   │   ├── review.py
+│   │   │   │   ├── search.py
+│   │   │   │   ├── settings.py
+│   │   │   │   └── submission.py
+│   │   │   └── responses
+│   │   │       ├── __init__.py
+│   │   │       ├── common.py
+│   │   │       ├── notice.py
+│   │   │       └── search.py
+│   │   ├── v2
+│   │   │   ├── __init__.py
+│   │   │   ├── auth_requests.py
+│   │   │   ├── device_data.py
+│   │   │   ├── device_request.py
+│   │   │   ├── login_data.py
+│   │   │   └── responses.py
+│   │   └── v2_schemas.py
+│   └── utils
+│       ├── logging_manager.py
+│       ├── openjwc_cli.py
+│       ├── ping_check.py
+│       └── sysinfo_monitor.py
+├── bin
+├── data
+├── docs
+│   ├── COMPLETION_AUDIT.md
+│   └── REFACTORING.md
+├── LICENSE
+├── logs
+├── main.py
+├── pyproject.toml
+├── README.md
+├── structure.txt
+├── tests
+│   ├── agent
+│   │   ├── test_detail_tool.py
+│   │   ├── test_parser.py
+│   │   ├── test_registry.py
+│   │   ├── test_smoke.py
+│   │   └── test_sse_stream.py
+│   ├── cli
+│   │   ├── __init__.py
+│   │   ├── test_commands.py
+│   │   └── test_manifest.py
+│   ├── conftest.py
+│   ├── crawler
+│   │   ├── conftest.py
+│   │   ├── fakes
+│   │   │   ├── __init__.py
+│   │   │   ├── config.py
+│   │   │   ├── crawler.py
+│   │   │   ├── crawler_config.py
+│   │   │   ├── filters.py
+│   │   │   ├── markdown.py
+│   │   │   └── result.py
+│   │   ├── test_list_incremental_crawler.py
+│   │   ├── test_list_to_articles_e2e.py
+│   │   └── test_real_web_integration.py
+│   ├── e2e
+│   │   ├── conftest.py
+│   │   ├── test_admin_settings_flow.py
+│   │   ├── test_apikey_register_search_flow.py
+│   │   ├── test_chat_auth_guard.py
+│   │   ├── test_submission_review_flow.py
+│   │   └── user_management
+│   │       ├── __init__.py
+│   │       ├── test_admin_operations.py
+│   │       ├── test_device_binding.py
+│   │       ├── test_pagination.py
+│   │       └── test_registration.py
+│   ├── ingestion
+│   │   ├── __init__.py
+│   │   ├── conftest.py
+│   │   ├── dedup
+│   │   │   ├── __init__.py
+│   │   │   ├── test_service.py
+│   │   │   ├── test_simhash.py
+│   │   │   └── test_url.py
+│   │   ├── embedder_tests
+│   │   │   ├── __init__.py
+│   │   │   ├── test_batch.py
+│   │   │   ├── test_config.py
+│   │   │   └── test_operations.py
+│   │   ├── normalizer_tests
+│   │   │   ├── __init__.py
+│   │   │   ├── test_content.py
+│   │   │   ├── test_datetime.py
+│   │   │   ├── test_markup.py
+│   │   │   └── test_text.py
+│   │   ├── pipeline
+│   │   │   ├── __init__.py
+│   │   │   ├── test_normalization.py
+│   │   │   ├── test_processing.py
+│   │   │   └── test_results.py
+│   │   ├── tag_initializer
+│   │   │   ├── __init__.py
+│   │   │   ├── test_config.py
+│   │   │   ├── test_helpers.py
+│   │   │   └── test_run.py
+│   │   ├── tag_matcher_tests
+│   │   │   ├── __init__.py
+│   │   │   ├── test_initialization.py
+│   │   │   ├── test_matching.py
+│   │   │   └── test_similarity.py
+│   │   ├── test_crawler_adapter.py
+│   │   ├── test_embedder_integration.py
+│   │   └── validator_tests
+│   │       ├── __init__.py
+│   │       ├── test_document.py
+│   │       └── test_fields.py
+│   ├── lance_storage
+│   │   ├── __init__.py
+│   │   ├── cli.py
+│   │   ├── conftest.py
+│   │   ├── connection
+│   │   │   ├── __init__.py
+│   │   │   ├── fake_connection.py
+│   │   │   ├── fake_tables.py
+│   │   │   ├── test_behavior.py
+│   │   │   ├── test_guard.py
+│   │   │   └── test_path_resolution.py
+│   │   ├── repository
+│   │   │   ├── __init__.py
+│   │   │   ├── fake_failures.py
+│   │   │   ├── fake_tables.py
+│   │   │   ├── tag_repository_tests
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── test_batch.py
+│   │   │   │   ├── test_crud.py
+│   │   │   │   └── test_search.py
+│   │   │   ├── test_data.py
+│   │   │   └── test_exceptions.py
+│   │   └── tag
+│   │       ├── __init__.py
+│   │       ├── matcher_tests
+│   │       │   ├── __init__.py
+│   │       │   ├── test_matching.py
+│   │       │   └── test_similarity.py
+│   │       └── system_tests
+│   │           ├── __init__.py
+│   │           ├── test_embedder.py
+│   │           ├── test_initializer.py
+│   │           └── test_matching.py
+│   ├── retrieval
+│   │   ├── __init__.py
+│   │   ├── conftest.py
+│   │   ├── embedding
+│   │   │   ├── __init__.py
+│   │   │   ├── test_batch.py
+│   │   │   ├── test_distance.py
+│   │   │   ├── test_query.py
+│   │   │   ├── test_similarity.py
+│   │   │   └── test_vector.py
+│   │   ├── engine
+│   │   │   ├── __init__.py
+│   │   │   ├── test_advanced.py
+│   │   │   ├── test_base.py
+│   │   │   ├── test_documents.py
+│   │   │   ├── test_factory.py
+│   │   │   ├── test_semantic.py
+│   │   │   └── test_vector.py
+│   │   └── store
+│   │       ├── __init__.py
+│   │       ├── integration_tests
+│   │       │   ├── __init__.py
+│   │       │   ├── test_base.py
+│   │       │   ├── test_hybrid.py
+│   │       │   ├── test_management.py
+│   │       │   └── test_search.py
+│   │       └── unit_tests
+│   │           ├── __init__.py
+│   │           ├── test_factory.py
+│   │           └── test_store.py
+│   ├── smoke_agent.py
+│   ├── smoke_crawler.py
+│   └── sqlite
+│       └── test_notice_repository.py
+├── tools
+│   └── quality_audit.py
+└── uv.lock

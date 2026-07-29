@@ -1,14 +1,4 @@
-"""
-Database Connection - LanceDB 连接池管理
-
-单例模式管理 LanceDB 连接，提供线程安全的访问接口。
-
-Responsibilities:
-    - 单例模式管理数据库连接
-    - 线程安全的表访问
-    - 表初始化和索引创建
-    - 连接健康检查
-"""
+"""Database Connection - LanceDB 连接池管理"""
 
 import logging
 import os
@@ -31,21 +21,12 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 def _table_names(db: "DBConnection") -> list[str]:
-    """Return table names across LanceDB versions."""
     tables_obj = db.list_tables()
     names = getattr(tables_obj, "tables", tables_obj)
     return list(names)
 
-
-# =============================================================================
-# 默认配置
-# =============================================================================
-
-# 默认数据库路径 (相对于项目根目录)
 DEFAULT_DB_PATH = "data/lancedb"
-
 
 def _find_project_root(start: Path) -> Path:
     """从当前文件向上查找项目根目录（以 pyproject.toml 为锚点）。"""
@@ -54,9 +35,7 @@ def _find_project_root(start: Path) -> Path:
         if (candidate / "pyproject.toml").exists():
             return candidate
 
-    # 兜底: 保持稳定的绝对路径行为，避免依赖当前工作目录。
     return current.parents[4] if len(current.parents) > 4 else current.parent
-
 
 def _resolve_db_path(db_path: str | None) -> str:
     """解析 LanceDB 路径，保证相对路径统一锚定到项目根目录。"""
@@ -68,28 +47,11 @@ def _resolve_db_path(db_path: str | None) -> str:
     project_root = _find_project_root(Path(__file__).resolve().parent)
     return str((project_root / expanded_path).resolve())
 
+from .connection_mixins.connection_index_mixin import ConnectionIndexMixin
+from .connection_mixins.connection_management_mixin import ConnectionManagementMixin
 
-# =============================================================================
-# LanceDB 连接管理器
-# =============================================================================
-
-
-class LanceDBConnection:
-    """
-    LanceDB 连接池管理器 (单例模式)
-
-    Features:
-        - 线程安全的单例实例
-        - 自动创建数据库目录
-        - 表初始化和索引管理
-        - 连接健康检查
-
-    Usage:
-        >>> conn = LanceDBConnection()
-        >>> table = conn.get_table("articles")
-        >>> # 或使用全局函数
-        >>> table = get_articles_table()
-    """
+class LanceDBConnection(ConnectionIndexMixin, ConnectionManagementMixin):
+    """LanceDB 连接池管理器 (单例模式)"""
 
     _instance: "LanceDBConnection | None" = None
     _lock = threading.Lock()
@@ -98,15 +60,7 @@ class LanceDBConnection:
     _db: "DBConnection"
 
     def __new__(cls, db_path: str | None = None) -> "LanceDBConnection":
-        """
-        创建或获取单例实例
-
-        Args:
-            db_path: 数据库路径，仅在首次创建时生效
-
-        Returns:
-            LanceDBConnection 单例实例
-        """
+        """创建或获取单例实例"""
         if cls._instance is None:
             with cls._lock:
                 if cls._instance is None:
@@ -116,12 +70,7 @@ class LanceDBConnection:
         return cls._instance
 
     def __init__(self, db_path: str | None = None) -> None:
-        """
-        初始化连接
-
-        Args:
-            db_path: 数据库路径，默认为 ./data/campus.lance
-        """
+        """初始化连接"""
         if getattr(self, "_initialized", False):
             return
 
@@ -152,18 +101,7 @@ class LanceDBConnection:
         return self._db_path
 
     def get_table(self, name: str = ARTICLES_TABLE_NAME) -> "Table":
-        """
-        获取表对象 (线程安全)
-
-        Args:
-            name: 表名，默认为 articles
-
-        Returns:
-            LanceDB Table 对象
-
-        Raises:
-            ValueError: 表不存在
-        """
+        """获取表对象 (线程安全)"""
         if name not in self._tables:
             with self._table_lock:
                 if name not in self._tables:
@@ -174,203 +112,18 @@ class LanceDBConnection:
                         raise ValueError(f"Table '{name}' does not exist: {e}") from e
         return self._tables[name]
 
-    def create_articles_table(self, exist_ok: bool = True) -> "Table":
-        """
-        创建 articles 表并初始化索引
-
-        Args:
-            exist_ok: 如果表已存在，是否返回现有表
-
-        Returns:
-            创建或获取的表对象
-        """
-        table_names = _table_names(self._db)
-
-        if ARTICLES_TABLE_NAME in table_names:
-            if exist_ok:
-                logger.info(
-                    f"Table '{ARTICLES_TABLE_NAME}' already exists, returning existing"
-                )
-                return self.get_table(ARTICLES_TABLE_NAME)
-            raise ValueError(f"Table '{ARTICLES_TABLE_NAME}' already exists")
-
-        # 创建空表
-        logger.info(f"Creating table: {ARTICLES_TABLE_NAME}")
-        schema = get_article_schema()
-        table = self._db.create_table(ARTICLES_TABLE_NAME, schema=schema)
-
-        # 缓存表引用
-        with self._table_lock:
-            self._tables[ARTICLES_TABLE_NAME] = table
-
-        logger.info(f"Table '{ARTICLES_TABLE_NAME}' created successfully")
-        return table
-
-    def create_indices(self, table_name: str = ARTICLES_TABLE_NAME) -> None:
-        """
-        为表创建索引 (向量索引 + 全文索引)
-
-        规则：
-        1. 向量索引：只有在数据行数 >= 256 时才创建
-        2. 全文索引：为每个字段单独创建
-
-        注意: 索引创建需要表中有数据才能生效
-
-        Args:
-            table_name: 表名
-        """
-        table = self.get_table(table_name)
-
-        # 检查表是否有数据
-        row_count = table.count_rows()
-        if row_count == 0:
-            logger.warning(f"Table '{table_name}' is empty, skipping index creation")
-            return
-
-        logger.info(f"Creating indices for table '{table_name}' ({row_count} rows)")
-
-        # 1. 创建正文向量索引 (用于语义搜索) - 仅在行数 >= 256 时创建
-        if row_count >= 256:
-            try:
-                table.create_index(
-                    metric="cosine",
-                    vector_column_name=ArticleFields.CONTENT_EMBEDDING,
-                    index_type=IndexConfig.VECTOR_INDEX_TYPE,
-                    num_partitions=min(IndexConfig.IVF_PARTITIONS, row_count),
-                    num_sub_vectors=IndexConfig.PQ_SUBQUANTIZERS,
-                    replace=True,
-                )
-                logger.info(
-                    f"Vector index created on '{ArticleFields.CONTENT_EMBEDDING}' (row_count={row_count} >= 256)"
-                )
-            except Exception as e:
-                logger.warning(f"Failed to create vector index: {e}")
-        else:
-            logger.info(f"Skipping vector index creation: row_count={row_count} < 256")
-
-        # 2. 创建全文索引 (Tantivy) - 为每个字段单独创建
-        try:
-            for field in IndexConfig.FTS_FIELDS:
-                try:
-                    table.create_fts_index(
-                        field,
-                        use_tantivy=IndexConfig.FTS_USE_TANTIVY,
-                        replace=True,
-                    )
-                    logger.info(f"FTS index created on '{field}'")
-                except Exception as e:
-                    logger.warning(
-                        f"Failed to create FTS index on field '{field}': {e}"
-                    )
-                    # 继续为其他字段创建索引
-        except Exception as e:
-            logger.warning(f"Failed to create FTS indices: {e}")
-
-    def table_exists(self, name: str = ARTICLES_TABLE_NAME) -> bool:
-        """检查表是否存在"""
-        return name in _table_names(self._db)
-
-    def drop_table(self, name: str) -> None:
-        """
-        删除表
-
-        Args:
-            name: 表名
-
-        Warning:
-            此操作不可恢复
-        """
-        logger.warning(f"Dropping table: {name}")
-        self._db.drop_table(name)
-        with self._table_lock:
-            self._tables.pop(name, None)
-
-    def health_check(self) -> dict[str, Any]:
-        """
-        执行健康检查
-
-        Returns:
-            包含健康状态的字典
-        """
-        try:
-            tables = _table_names(self._db)
-            articles_count = 0
-
-            if ARTICLES_TABLE_NAME in tables:
-                articles_count = self.get_table(ARTICLES_TABLE_NAME).count_rows()
-
-            return {
-                "status": "healthy",
-                "db_path": self._db_path,
-                "tables": tables,
-                "articles_count": articles_count,
-            }
-        except Exception as e:
-            logger.error(f"Health check failed: {e}")
-            return {
-                "status": "unhealthy",
-                "error": str(e),
-            }
-
-    @classmethod
-    def reset(cls) -> None:
-        """
-        重置单例实例 (仅用于测试)
-
-        Warning:
-            此方法仅应在测试中使用
-        """
-        with cls._lock:
-            if cls._instance is not None:
-                cls._instance._tables.clear()
-                cls._instance = None
-                logger.warning("LanceDB connection reset")
-
-
-# =============================================================================
-# 便捷函数
-# =============================================================================
-
-
 def get_connection(db_path: str | None = None) -> LanceDBConnection:
-    """
-    获取 LanceDB 连接实例
-
-    Args:
-        db_path: 数据库路径 (仅首次调用时生效)
-
-    Returns:
-        LanceDBConnection 单例实例
-    """
+    """获取 LanceDB 连接实例"""
     return LanceDBConnection(db_path)
 
-
 def get_articles_table() -> "Table":
-    """
-    获取 articles 表
-
-    Returns:
-        articles 表对象
-
-    Raises:
-        ValueError: 表不存在时抛出
-    """
+    """获取 articles 表"""
     return get_connection().get_table(ARTICLES_TABLE_NAME)
-
 
 def init_database(
     db_path: str | None = None, create_indices: bool = False
 ) -> LanceDBConnection:
-    """
-    初始化数据库 (创建表和索引)
-
-    Args:
-        db_path: 数据库路径
-        create_indices: 是否创建索引
-
-    Returns:
-        LanceDBConnection 实例
-    """
+    """初始化数据库 (创建表和索引)"""
     conn = get_connection(db_path)
     conn.create_articles_table(exist_ok=True)
 

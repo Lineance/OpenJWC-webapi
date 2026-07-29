@@ -3,7 +3,6 @@ from __future__ import annotations
 import pytest
 from httpx import AsyncClient
 
-
 async def _admin_login(
     client: AsyncClient,
     username: str,
@@ -19,7 +18,6 @@ async def _admin_login(
     token = payload["data"]["token"]
     assert token
     return token
-
 
 @pytest.mark.asyncio
 async def test_admin_login_settings_update_and_effect(

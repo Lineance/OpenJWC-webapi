@@ -1,10 +1,11 @@
+
+from typing import Any
 from pathlib import Path
 
 from app.infrastructure.storage.lancedb.schema import ArticleFields
 from app.infrastructure.storage.sqlite import notice_repository as notice_repo_module
 from app.infrastructure.storage.sqlite.notice_repository import NoticeRepository
 from app.infrastructure.storage.sqlite.sql_db_service import DBService
-
 
 def test_notice_repository_upsert_and_list(tmp_path: Path) -> None:
     db_path = tmp_path / "notice_repo.db"
@@ -34,7 +35,6 @@ def test_notice_repository_upsert_and_list(tmp_path: Path) -> None:
     assert len(notices) == 1
     assert notices[0]["id"] == "notice-sqlite-001"
     assert notices[0]["label"] == "教务"
-
 
 def test_notice_repository_labels_and_delete(tmp_path: Path) -> None:
     db_path = tmp_path / "notice_repo2.db"
@@ -76,14 +76,11 @@ def test_notice_repository_labels_and_delete(tmp_path: Path) -> None:
     assert total == 1
     assert notices[0]["id"] == "notice-b"
 
-
 def test_notice_repository_article_projection_behaviors(tmp_path: Path) -> None:
     db_path = tmp_path / "notice_repo_projection.db"
     db_service = DBService(db_path=db_path)
     repo = NoticeRepository(db_service=db_service)
 
-    # Requirement: label/detail_url/is_page/date/attachments should be projected correctly
-    # even when source article metadata quality varies.
     assert repo.upsert_from_article(
         {
             ArticleFields.NEWS_ID: "proj-1",
@@ -128,7 +125,6 @@ def test_notice_repository_article_projection_behaviors(tmp_path: Path) -> None:
     assert by_id["proj-2"]["date"] == ""
     assert by_id["proj-2"]["attachments"] == []
 
-
 def test_notice_repository_article_projection_rejects_missing_news_id(
     tmp_path: Path,
 ) -> None:
@@ -147,7 +143,6 @@ def test_notice_repository_article_projection_rejects_missing_news_id(
         is False
     )
     assert repo.list_for_notices(limit=10, offset=0)[0] == 0
-
 
 def test_notice_repository_article_projection_rejects_invalid_news_id_values(
     tmp_path: Path,
@@ -172,7 +167,6 @@ def test_notice_repository_article_projection_rejects_invalid_news_id_values(
     assert total == 0
     assert items == []
 
-
 def test_notice_repository_label_fallback_when_first_tag_is_blank(
     tmp_path: Path,
 ) -> None:
@@ -180,7 +174,6 @@ def test_notice_repository_label_fallback_when_first_tag_is_blank(
     db_service = DBService(db_path=db_path)
     repo = NoticeRepository(db_service=db_service)
 
-    # Requirement: blank first tag should not suppress fallback to metadata label.
     assert repo.upsert_from_article(
         {
             ArticleFields.NEWS_ID: "label-fallback-1",
@@ -198,7 +191,6 @@ def test_notice_repository_label_fallback_when_first_tag_is_blank(
     info = repo.get_notice_info("label-fallback-1")
     assert info is not None
     assert info["label"] == "考试"
-
 
 def test_notice_repository_filter_bulk_and_not_found(tmp_path: Path) -> None:
     db_path = tmp_path / "notice_repo3.db"
@@ -241,10 +233,9 @@ def test_notice_repository_filter_bulk_and_not_found(tmp_path: Path) -> None:
     assert repo.get_notice_info("not-exist") is None
     assert repo.delete_notice("not-exist") is False
 
-
 def test_notice_repository_error_paths() -> None:
     class BrokenDBService:
-        def get_connection(self):
+        def get_connection(self) -> Any:
             raise RuntimeError("db down")
 
     repo = NoticeRepository(db_service=BrokenDBService())
@@ -255,7 +246,6 @@ def test_notice_repository_error_paths() -> None:
     assert repo.get_notice_total_labels() == 0
     assert repo.get_notice_info("n") is None
     assert repo.delete_notice("n") is False
-
 
 def test_get_notice_repository_singleton() -> None:
     old_repo = notice_repo_module._notice_repository

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
-
 @pytest.mark.asyncio
-async def test_chat_missing_authorization_returns_401(async_client):
+async def test_chat_missing_authorization_returns_401(async_client: Any) -> None:
     response = await async_client.post(
         "/api/v1/client/chat",
         json={"user_query": "hello", "stream": False, "history": []},

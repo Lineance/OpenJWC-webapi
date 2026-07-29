@@ -2,7 +2,6 @@ from typing import Tuple
 from app.infrastructure.storage.sqlite.db_interface import DBInterface, logger
 from app.application.motto.motto_service import get_daily_quote
 
-
 class MottoMixin:
     def insert_motto_from_hitokoto(self: DBInterface, date_str: str) -> bool:
         quote = get_daily_quote(category="a")
@@ -55,7 +54,7 @@ class MottoMixin:
             cursor.execute(
                 (
                     """
-                    SELECT motto_content, motto_author 
+                    SELECT motto_content, motto_author
                     FROM mottos
                     WHERE date_str = ?
                     """
@@ -67,4 +66,3 @@ class MottoMixin:
             return True, {"motto_content": row[0], "motto_author": row[1]}
         else:
             return False, {}
-

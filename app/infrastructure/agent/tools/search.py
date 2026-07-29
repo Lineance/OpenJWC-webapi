@@ -1,11 +1,8 @@
-"""Search tool wrapping RetrievalEngine."""
-
 from typing import Any
 
 from app.infrastructure.retrieval.engine import RetrievalEngine
 
 from .protocol import ToolResult
-
 
 class SearchTool:
     name = "search_keyword"

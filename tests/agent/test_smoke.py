@@ -1,11 +1,3 @@
-"""Smoke tests for ReActAgent with LLM integration.
-
-Run with:
-  pytest tests/agent/test_smoke.py -v
-  pytest tests/agent/test_smoke.py -v -k llm  # only LLM tests
-  pytest tests/agent/test_smoke.py -v -k heuristic  # only heuristic tests
-"""
-
 import os
 import sys
 from pathlib import Path
@@ -13,7 +5,6 @@ from typing import Any
 
 import pytest
 
-# Ensure project root is in path
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -25,9 +16,7 @@ from app.infrastructure.agent.memory.buffer import ConversationBuffer
 from app.infrastructure.agent.tools.protocol import ToolResult
 from app.infrastructure.agent.tools.registry import ToolRegistry
 
-
 class SmokeSearchTool:
-    """A minimal tool that simulates retrieval results for smoke testing."""
 
     name = "search_keyword"
     description = "Return deterministic mock results for smoke tests"
@@ -45,26 +34,26 @@ class SmokeSearchTool:
         ]
         return ToolResult(ok=True, content={"results": results, "total": len(results)})
 
-
 def _load_env() -> None:
-    """Load environment variables once per process."""
     from dotenv import load_dotenv
 
     project_root = Path(__file__).resolve().parents[2]
     load_dotenv(project_root / "app" / "infrastructure" / "agent" / ".env", override=False)
     load_dotenv(project_root / ".env", override=False)
 
-
 def _has_api_key() -> bool:
-    """Check if any LLM API key is available."""
-    import os
-
     _load_env()
-    return bool(os.getenv("DEEPSEEK_API_KEY") or os.getenv("LITELLM_API_KEY"))
-
+    model = os.getenv("OPENJWC_AGENT_MODEL", LLMDecisionClient.default_model()).lower()
+    key_names = ["LITELLM_API_KEY"]
+    if model.startswith("openai/"):
+        key_names.append("OPENAI_API_KEY")
+    elif model.startswith("deepseek/"):
+        key_names.append("DEEPSEEK_API_KEY")
+    values = [os.getenv(name, "").strip() for name in key_names]
+    placeholders = {"", "none", "null", "your_api_key", "this_is_your_dpsk_key"}
+    return any(value.lower() not in placeholders for value in values)
 
 def create_agent(mode: str = "llm") -> ReActAgent:
-    """Create a ReActAgent for smoke testing."""
     _load_env()
 
     config = AgentConfig(
@@ -97,10 +86,8 @@ def create_agent(mode: str = "llm") -> ReActAgent:
     )
     return agent
 
-
 @pytest.mark.asyncio
-async def test_heuristic_mode_basic():
-    """Test agent in heuristic mode (no LLM)."""
+async def test_heuristic_mode_basic() -> None:
     agent = create_agent(mode="heuristic")
 
     saw_tool_call = False
@@ -117,14 +104,8 @@ async def test_heuristic_mode_basic():
     assert saw_tool_call, "Should emit tool_call event"
     assert saw_done, "Should emit done event"
 
-
 @pytest.mark.asyncio
-async def test_llm_mode_basic():
-    """Test agent in LLM mode with real API call.
-
-    Requires DEEPSEEK_API_KEY or other LLM API key in .env file.
-    Skip this test if no API key is available.
-    """
+async def test_llm_mode_basic() -> None:
     if not _has_api_key():
         pytest.skip("No LLM API key available (DEEPSEEK_API_KEY or LITELLM_API_KEY)")
 
@@ -151,10 +132,8 @@ async def test_llm_mode_basic():
     assert saw_done, "Should emit done event"
     assert saw_llm_planner, "Should use LLM planner"
 
-
 @pytest.mark.asyncio
-async def test_heuristic_mode_with_limit():
-    """Test heuristic mode with custom max_steps."""
+async def test_heuristic_mode_with_limit() -> None:
     agent = create_agent(mode="heuristic")
     agent._config.max_steps = 1
 
@@ -164,8 +143,5 @@ async def test_heuristic_mode_with_limit():
     ):
         events.append(event)
 
-    # With max_steps=1, should still produce done event
     event_types = [e.type for e in events]
     assert "done" in event_types, "Should produce done event even with limit=1"
-
-

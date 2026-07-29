@@ -23,11 +23,9 @@ submission_pipeline = IngestionPipeline(
     )
 )
 
-
 def _get_submission_max_length() -> int:
     setting_value = db.get_system_setting("submission_max_length")
     return int(setting_value or "10000")
-
 
 def submit_submission(draft: SubmissionDraft, submitter_id: str) -> tuple[bool, str]:
     max_length = _get_submission_max_length()
@@ -42,7 +40,6 @@ def submit_submission(draft: SubmissionDraft, submitter_id: str) -> tuple[bool, 
 
     return True, "提交成功"
 
-
 def get_submissions_for_admin(
     page: int,
     size: int,
@@ -52,7 +49,6 @@ def get_submissions_for_admin(
     return submission_repository.list_for_admin(
         status=status, offset=offset, limit=size
     )
-
 
 def get_submission_detail(submission_id: str) -> dict | None:
     record = submission_repository.get_by_id(submission_id)
@@ -71,10 +67,8 @@ def get_submission_detail(submission_id: str) -> dict | None:
         "review": record.review,
     }
 
-
 def get_my_submissions(submitter_id: str) -> list[dict]:
     return submission_repository.list_by_submitter(submitter_id)
-
 
 def audit_and_import_submission(submission_id: str, status: str, review: str) -> bool:
     parsed_status = parse_status(status)
@@ -100,7 +94,6 @@ def audit_and_import_submission(submission_id: str, status: str, review: str) ->
             )
             return False
 
-        # 公告主读模型写入 SQLite，避免 notices API 依赖 LanceDB 顺序表。
         notice_repository.upsert_notice(
             {
                 "id": record.submission_id,

@@ -1,13 +1,9 @@
-"""Agent runtime configuration."""
-
 import os
 
 from pydantic import BaseModel, Field
 
-
 def _default_llm_model() -> str:
     return os.getenv("OPENJWC_AGENT_MODEL", "openai/gpt-4o-mini")
-
 
 class AgentConfig(BaseModel):
     llm_model: str = Field(default_factory=_default_llm_model)

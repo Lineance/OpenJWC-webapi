@@ -5,19 +5,13 @@ from typing import Optional, List
 from app.core.security import get_password_hash, verify_password
 from app.infrastructure.storage.sqlite.db_interface import DBInterface, logger
 
-
 class UserMixin:
     """v2 账密鉴权相关的数据库操作"""
-
-    # ==================== 用户账号 ====================
 
     def create_user_from_registration(
         self: DBInterface, username: str, email: str, password_hash: str
     ) -> int:
-        """
-        从注册审核通过创建正式用户。
-        :return: 新用户的ID
-        """
+        """从注册审核通过创建正式用户。"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
@@ -29,20 +23,15 @@ class UserMixin:
             return cursor.lastrowid
 
     def create_user(self: DBInterface, username: str, email: str, password_hash: str) -> bool:
-        """
-        注册新用户。
-        password_hash 是客户端传来的 SHA256，服务端再做一次 bcrypt 后存储。
-        :return: True 表示成功
-        :raises ValueError: 用户名或邮箱已存在
-        """
+        """注册新用户。"""
         hashed = get_password_hash(password_hash)
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            # 检查用户名是否已存在
+
             cursor.execute("SELECT id FROM users WHERE username = ?", (username,))
             if cursor.fetchone():
                 raise ValueError("用户名已存在")
-            # 检查邮箱是否已存在
+
             cursor.execute("SELECT id FROM users WHERE email = ?", (email,))
             if cursor.fetchone():
                 raise ValueError("邮箱已被注册")
@@ -57,11 +46,7 @@ class UserMixin:
     def authenticate_user(
         self: DBInterface, account: str, password_hash: str
     ) -> Optional[dict]:
-        """
-        验证用户登录。account 可以是用户名或邮箱。
-        password_hash 是客户端传来的 SHA256。
-        :return: 匹配的用户字典 {id, username, email}，验证失败返回 None
-        """
+        """验证用户登录。account 可以是用户名或邮箱。"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
@@ -158,17 +143,11 @@ class UserMixin:
             logger.info(f"用户ID {user_id} 删除成功")
             return True
 
-    # ==================== 用户设备 ====================
-
     def upsert_user_device(
         self: DBInterface, user_id: int, device_uuid: str, device_name: str,
         token: str = None,
     ) -> None:
-        """
-        登录时记录/更新设备。
-        如果设备已存在则更新 last_login、device_name 和 token_hash，否则插入新记录。
-        token_hash 存储 Token 的 SHA256 哈希，用于鉴权时校验绑定关系。
-        """
+        """登录时记录/更新设备。"""
         now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
         t_hash = hashlib.sha256(token.encode()).hexdigest() if token else None
         with self.get_connection() as conn:
@@ -201,11 +180,7 @@ class UserMixin:
     def check_device_token_binding(
         self: DBInterface, user_id: int, device_uuid: str, token: str
     ) -> bool:
-        """
-        校验设备-Token绑定关系。
-        计算Token的SHA256哈希，与数据库中存储的token_hash比对。
-        :return: True 表示绑定关系有效
-        """
+        """校验设备-Token绑定关系。"""
         t_hash = hashlib.sha256(token.encode()).hexdigest()
         with self.get_connection() as conn:
             cursor = conn.cursor()
@@ -216,10 +191,7 @@ class UserMixin:
             return cursor.fetchone() is not None
 
     def unbind_user_device(self: DBInterface, user_id: int, device_uuid: str) -> bool:
-        """
-        解绑用户的指定设备。
-        :return: True 表示成功解绑，False 表示设备不存在
-        """
+        """解绑用户的指定设备。"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(

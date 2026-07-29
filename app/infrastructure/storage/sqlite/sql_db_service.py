@@ -1,3 +1,5 @@
+
+from typing import Any
 import sqlite3
 
 from app.core.config import SQLITE_DB_PATH
@@ -20,21 +22,20 @@ SQLITE_USER_STATE_TABLES = {
     "user_registrations",
 }
 
-
 class DBService(ValidationMixin, AdminMixin, DeviceMixin, MottoMixin, UserMixin):
-    def __init__(self, db_path=SQLITE_DB_PATH):
+    def __init__(self, db_path: Any=SQLITE_DB_PATH) -> None:
         self.db_path = db_path
         self.init_db()
 
-    def get_connection(self):
+    def get_connection(self) -> Any:
         """获取数据库连接（并且让返回的查询结果表现得像字典，非常方便）"""
         conn = sqlite3.connect(self.db_path)
-        # 将行数据转化为字典，而不是粗糙的元组
+
         conn.row_factory = sqlite3.Row
         logger.debug("sql数据库连接成功")
         return conn
 
-    def init_db(self):
+    def init_db(self) -> Any:
         """初始化 SQLite 用户态/系统态表。"""
         logger.info("正在初始化 SQLite 用户态数据库")
         create_keys_sql = """
@@ -150,7 +151,7 @@ class DBService(ValidationMixin, AdminMixin, DeviceMixin, MottoMixin, UserMixin)
             cursor.execute(create_users_sql)
             cursor.execute(create_user_devices_sql)
             cursor.execute(create_user_registrations_sql)
-            # user_devices 索引
+
             cursor.execute(
                 "CREATE INDEX IF NOT EXISTS idx_user_devices_token_hash ON user_devices(token_hash);"
             )
@@ -166,7 +167,7 @@ class DBService(ValidationMixin, AdminMixin, DeviceMixin, MottoMixin, UserMixin)
             conn.commit()
             logger.info("sql数据库初始化完成")
 
-    def drop_table(self, table: str):
+    def drop_table(self, table: str) -> Any:
         """CLI兼容：删除允许的 SQLite 用户态表并重建结构。"""
         if table not in SQLITE_USER_STATE_TABLES:
             allowed = ", ".join(sorted(SQLITE_USER_STATE_TABLES))
@@ -179,10 +180,7 @@ class DBService(ValidationMixin, AdminMixin, DeviceMixin, MottoMixin, UserMixin)
             logger.info(f"{table}表结构已删除。")
         self.init_db()
 
-
-# 单例模式导出，方便全局其他地方使用同一个实例
 db = DBService()
-
 
 if __name__ == "__main__":
     db.init_db()

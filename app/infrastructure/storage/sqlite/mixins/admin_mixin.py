@@ -1,3 +1,5 @@
+
+from typing import Any
 import json
 import os
 from typing import Optional
@@ -6,14 +8,10 @@ from app.core.config import ADMIN_CONFIG_PATH, ALLOWED_SETTINGS
 from app.core.security import get_password_hash
 from app.infrastructure.storage.sqlite.db_interface import DBInterface, logger
 
-
 class AdminMixin:
-    # 管理员鉴权
+
     def get_all_admins(self: DBInterface) -> list[dict]:
-        """
-        获取数据库中所有的管理员账号
-        :return: 包含所有管理员信息的字典列表
-        """
+        """获取数据库中所有的管理员账号"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT user_name, hashed_password FROM admin_users")
@@ -21,11 +19,7 @@ class AdminMixin:
             return [dict(row) for row in rows]
 
     def sync_admins_from_config(self: DBInterface) -> bool:
-        """
-        从配置文件单向同步管理员名单
-        只保留配置中出现的管理员，配置中未出现的管理员账号会被删除
-        :return: 同步成功返回True，配置文件不存在返回False
-        """
+        """从配置文件单向同步管理员名单"""
         if not os.path.exists(ADMIN_CONFIG_PATH):
             return False
         logger.info("管理员初始化配置成功读取")
@@ -54,12 +48,7 @@ class AdminMixin:
         return True
 
     def get_admin_user(self: DBInterface, username: str) -> Optional[dict]:
-        """
-        供登录接口验证账号密码使用
-        接受一个用户名，在sql数据库的admin_users表中查询该用户是否存在
-        :param username: 用户名
-        :return: 如果存在，返回一个字典，包含user_name和hashed_password；如果不存在，返回None
-        """
+        """供登录接口验证账号密码使用"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
@@ -76,7 +65,7 @@ class AdminMixin:
             cursor = conn.cursor()
             cursor.execute(
                 """
-                INSERT INTO admin_users (user_name, hashed_password) 
+                INSERT INTO admin_users (user_name, hashed_password)
                 VALUES (?, ?)
                 """,
                 (username, hashed_password),
@@ -89,7 +78,7 @@ class AdminMixin:
         """超管方法：删除一个管理员账号"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            # 先检查存不存在
+
             cursor.execute(
                 "SELECT user_name FROM admin_users WHERE user_name = ?", (admin_name,)
             )
@@ -122,7 +111,6 @@ class AdminMixin:
             logger.info(f"管理员账号 [ID: {admin_name}] 的密码已更新")
             return True
 
-    # 系统设置
     def get_system_setting(self: DBInterface, setting_key: str) -> Optional[str]:
         """获取系统配置（如大模型Key、系统提示词、爬虫周期）"""
         with self.get_connection() as conn:
@@ -136,7 +124,7 @@ class AdminMixin:
 
     def _sync_settings(
         self: DBInterface,
-    ):
+    ) -> Any:
         """从ALLOWED_SETTINGS中同步所有允许的配置项到数据库"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
@@ -178,10 +166,8 @@ class AdminMixin:
                 ]
             }
 
-    def update_system_setting(self: DBInterface, setting_key: str, setting_value: str):
-        """
-        更新或插入系统配置。
-        """
+    def update_system_setting(self: DBInterface, setting_key: str, setting_value: str) -> Any:
+        """更新或插入系统配置。"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
@@ -195,7 +181,6 @@ class AdminMixin:
             conn.commit()
             logger.info(f"系统配置已更新: {setting_key}")
 
-    # dashboard
     def get_dashboard_stats(self: DBInterface) -> dict:
         """获取首页概览数据"""
         with self.get_connection() as conn:
@@ -218,9 +203,7 @@ class AdminMixin:
             }
 
     def reset_system_setting(self: DBInterface, setting_key: str) -> bool:
-        """
-        将指定设置重置为 ALLOWED_SETTINGS 中的默认值
-        """
+        """将指定设置重置为 ALLOWED_SETTINGS 中的默认值"""
         if setting_key not in ALLOWED_SETTINGS:
             logger.error(f"尝试重置不存在的配置项: {setting_key}")
             return False
@@ -230,14 +213,12 @@ class AdminMixin:
         logger.info(f"系统配置已重置为默认值: {setting_key}")
         return True
 
-    def reset_all_settings(self: DBInterface):
-        """
-        将所有设置重置为 ALLOWED_SETTINGS 中的默认值
-        """
+    def reset_all_settings(self: DBInterface) -> Any:
+        """将所有设置重置为 ALLOWED_SETTINGS 中的默认值"""
         self._sync_settings()
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            # 使用 executemany 进行批量更新，效率更高
+
             update_data = [(value, key) for key, value in ALLOWED_SETTINGS.items()]
             cursor.executemany(
                 "UPDATE system_settings SET setting_value = ? WHERE setting_key = ?",

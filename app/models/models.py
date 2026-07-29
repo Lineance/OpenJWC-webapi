@@ -1,6 +1,5 @@
 from pydantic import BaseModel
 
-
 class SysinfoData(BaseModel):
     """返回的一堆数据"""
 

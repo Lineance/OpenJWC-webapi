@@ -4,13 +4,10 @@ from app.utils.logging_manager import setup_logger
 
 logger = setup_logger("motto_logs")
 
-
 def get_daily_quote(
     category: Optional[str] = None, max_length: int = 50
 ) -> Dict[str, Any]:
-    """
-    获取每日一言 (调用 Hitokoto API)
-    """
+    """获取每日一言 (调用 Hitokoto API)"""
     url = "https://v1.hitokoto.cn/"
     params = {}
     if category:
@@ -45,7 +42,6 @@ def get_daily_quote(
         "author": "Moonhalf",
         "category_type": "fallback",
     }
-
 
 if __name__ == "__main__":
     logger.info("正在获取随机一言...")

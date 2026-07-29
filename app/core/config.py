@@ -4,7 +4,6 @@ ROOT_DIR = Path(__file__).resolve().parent.parent.parent
 DATA_DIR = ROOT_DIR / "data"
 BIN_DIR = ROOT_DIR / "bin"
 
-
 ADMIN_CONFIG_PATH = ROOT_DIR / "admins.json"
 SQLITE_DB_PATH = DATA_DIR / "jwc_notices.db"
 NOTICE_JSON = DATA_DIR / "output.json"

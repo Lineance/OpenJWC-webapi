@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import argparse
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
 
 from app.infrastructure.crawler.python_crawler import list_to_articles_e2e as e2e
-
 
 class _FakeListIncrementalCrawler:
     def __init__(self, **kwargs: Any) -> None:
@@ -52,7 +52,6 @@ class _FakeListIncrementalCrawler:
             ],
         }
 
-
 class _FakeArticleCrawler:
     def __init__(self, **kwargs: Any) -> None:
         self.kwargs = kwargs
@@ -66,13 +65,10 @@ class _FakeArticleCrawler:
     def load_config(
         self, target: list[str], override_config: dict[str, Any] | None = None
     ) -> tuple[list[str], Any, None]:
-        class _RunConfig:
-            cache_mode = None
-            check_cache_freshness = None
-
         assert len(target) == 2
         assert override_config == {"crawler": {"word_count_threshold": 20}}
-        return target, _RunConfig(), None
+        run_config = SimpleNamespace(cache_mode=None, check_cache_freshness=None)
+        return target, run_config, None
 
     async def crawl_articles(
         self, urls: list[str], run_config: Any
@@ -81,7 +77,6 @@ class _FakeArticleCrawler:
             {"success": True, "url": urls[0]},
             {"success": True, "url": urls[1]},
         ]
-
 
 @pytest.mark.asyncio
 async def test_run_e2e_website_mode_smoke(monkeypatch: pytest.MonkeyPatch) -> None:

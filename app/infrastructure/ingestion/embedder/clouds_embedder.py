@@ -1,17 +1,4 @@
-"""
-Cloud Embedder - 云端文本向量化
-
-接口对齐 local_embedder:
-- embed_titles -> 384 维
-- embed_contents -> 1024 维
-- embed_query -> 1024 维
-- embed_batch / get_dimensions / reset
-
-实现方式保留云端调用逻辑:
-- ZhipuAI embedding-3
-- tenacity 指数退避重试
-- 认证失败后自动重建 client
-"""
+"""Cloud Embedder - 云端文本向量化"""
 
 from __future__ import annotations
 
@@ -39,7 +26,6 @@ from app.infrastructure.storage.sqlite.sql_db_service import db
 
 logger = logging.getLogger(__name__)
 
-# 与 LanceDB schema 对齐的维度常量
 TITLE_EMBEDDING_DIM = 384
 CONTENT_EMBEDDING_DIM = 1024
 
@@ -47,9 +33,7 @@ TITLE_MODEL_NAME = "zhipu/embedding-3"
 CONTENT_MODEL_NAME = "zhipu/embedding-3"
 CLOUD_EMBEDDING_MODEL = "embedding-3"
 
-
 class CloudEmbedder:
-    """Cloud embedding client with local-compatible API."""
 
     _instance: Self | None = None
     _lock = threading.Lock()
@@ -79,7 +63,6 @@ class CloudEmbedder:
         return ZhipuAI(api_key=api_key, timeout=60)
 
     def reinitialize_client(self) -> None:
-        """Recreate client using latest API key from settings."""
         logger.info("Reinitializing ZhipuAI client")
         self._client = self._build_client()
 
@@ -133,7 +116,7 @@ class CloudEmbedder:
         if not texts:
             return []
 
-        _ = batch_size  # Cloud API is called per text in current implementation.
+        _ = batch_size
         vectors: list[list[float]] = []
         for text in texts:
             try:
@@ -198,24 +181,18 @@ class CloudEmbedder:
                 cls._instance = None
                 logger.warning("CloudEmbedder reset")
 
-
-# Keep naming style close to local_embedder for compatibility.
 Embedder = CloudEmbedder
-
 
 def get_embedder() -> CloudEmbedder:
     return CloudEmbedder()
-
 
 def embed_title(text: str) -> list[float]:
     result = get_embedder().embed_titles([text])
     return result[0] if result else [0.0] * TITLE_EMBEDDING_DIM
 
-
 def embed_content(text: str) -> list[float]:
     result = get_embedder().embed_contents([text])
     return result[0] if result else [0.0] * CONTENT_EMBEDDING_DIM
-
 
 def embed_query(text: str) -> list[float]:
     return get_embedder().embed_query(text)

@@ -1,12 +1,9 @@
-"""Structured query tool with SQLGuard protection."""
-
 from typing import Any
 
 from app.infrastructure.storage.lancedb.guard import SQLGuard
 from app.infrastructure.storage.lancedb.repository import ArticleRepository
 
 from .protocol import ToolResult
-
 
 class SQLTool:
     name = "sql_service"
@@ -33,7 +30,7 @@ class SQLTool:
                 rows = self._repo.table.search().where(where).limit(limit).to_list()
             else:
                 rows = self._repo.find_all(limit=limit)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             return ToolResult(ok=False, content={}, error=str(exc))
 
         results = [

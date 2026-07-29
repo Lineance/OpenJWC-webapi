@@ -1,5 +1,3 @@
-"""Ingestion Tests Configuration"""
-
 import sys
 from pathlib import Path
 from typing import Any
@@ -7,12 +5,10 @@ from unittest.mock import MagicMock
 
 import pytest
 
-# 确保项目根路径可用
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-
 @pytest.fixture
-def mock_embedder():
+def mock_embedder() -> Any:
     """模拟 Embedder"""
     with pytest.MonkeyPatch.context() as mp:
         mp.setattr(
@@ -21,18 +17,16 @@ def mock_embedder():
         )
         yield
 
-
 @pytest.fixture
-def mock_repository():
+def mock_repository() -> Any:
     """模拟 ArticleRepository"""
     mock = MagicMock()
     mock.add_one.return_value = True
     mock.add.return_value = True
     return mock
 
-
 @pytest.fixture
-def mock_validator():
+def mock_validator() -> Any:
     """模拟 DocumentValidator"""
     mock = MagicMock()
     result = MagicMock()
@@ -41,14 +35,12 @@ def mock_validator():
     mock.validate.return_value = result
     return mock
 
-
 @pytest.fixture
-def mock_tag_matcher():
+def mock_tag_matcher() -> Any:
     """模拟 TagMatcher"""
     mock = MagicMock()
     mock.match_tags.return_value = ["标签1", "标签2"]
     return mock
-
 
 @pytest.fixture
 def sample_raw_document() -> dict[str, Any]:
@@ -65,7 +57,6 @@ def sample_raw_document() -> dict[str, Any]:
         "tags": ["初始标签"],
         "metadata": {"key": "value"},
     }
-
 
 @pytest.fixture
 def sample_normalized_document() -> dict[str, Any]:
@@ -86,5 +77,3 @@ def sample_normalized_document() -> dict[str, Any]:
         "last_updated": datetime.now(timezone.utc),
         "metadata": '{"key": "value"}',
     }
-
-

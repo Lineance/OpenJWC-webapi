@@ -11,7 +11,6 @@ from app.infrastructure.crawler.python_crawler.list_incremental_crawler import (
 )
 from tests.crawler.conftest import _AsyncWebCrawler, _FakeResult
 
-
 @pytest.fixture
 def crawler(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> ListIncrementalCrawler:
     monkeypatch.setattr(lic, "AsyncWebCrawler", _AsyncWebCrawler)
@@ -23,12 +22,10 @@ def crawler(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> ListIncrementalC
     )
     return instance
 
-
 def test_build_list_page_url(crawler: ListIncrementalCrawler) -> None:
     assert crawler._build_list_page_url("https://a.com/list.htm", 1) == "https://a.com/list.htm"
     assert crawler._build_list_page_url("https://a.com/list.htm", 2) == "https://a.com/list2.htm"
     assert crawler._build_list_page_url("https://a.com/list3.htm", 4) == "https://a.com/list4.htm"
-
 
 def test_is_allowed_and_normalize(crawler: ListIncrementalCrawler) -> None:
     assert (
@@ -47,13 +44,11 @@ def test_is_allowed_and_normalize(crawler: ListIncrementalCrawler) -> None:
         [r"/list\d*\.htm$"],
     )
 
-
 def test_state_file_roundtrip(crawler: ListIncrementalCrawler, tmp_path: Path) -> None:
     state_file = tmp_path / "state" / "a.json"
     crawler._save_state({"u1", "u2"}, state_file)
     loaded = crawler._load_state(state_file)
     assert loaded == {"u1", "u2"}
-
 
 @pytest.mark.asyncio
 async def test_crawl_list_incremental_dedup_and_state(
@@ -94,7 +89,6 @@ async def test_crawl_list_incremental_dedup_and_state(
         exclude_patterns=[r"/list\d*\.htm$"],
     )
     assert second == []
-
 
 @pytest.mark.asyncio
 async def test_crawl_website_incremental_with_two_start_urls_smoke(

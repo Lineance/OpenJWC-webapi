@@ -1,9 +1,6 @@
-"""In-process registry for agent tools."""
-
 from typing import Any
 
 from .protocol import Tool, ToolResult
-
 
 class ToolRegistry:
     def __init__(self) -> None:
@@ -22,5 +19,5 @@ class ToolRegistry:
 
         try:
             return await tool.run(**params)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             return ToolResult(ok=False, content={}, error=str(exc))

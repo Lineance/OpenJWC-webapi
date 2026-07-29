@@ -1,3 +1,5 @@
+
+from typing import Any
 import asyncio
 import logging
 
@@ -28,10 +30,8 @@ retrieval_engine = RetrievalEngine(
     db_path=str(DATA_DIR / "lancedb"), table_name="articles"
 )
 
-
-def _get_article_repo():
+def _get_article_repo() -> Any:
     return get_article_repository()
-
 
 def _search_context(query: str, top_k: int) -> str:
     payload = retrieval_engine.semantic_search(
@@ -61,16 +61,15 @@ def _search_context(query: str, top_k: int) -> str:
         )
     return "\n\n".join(lines)
 
-
 class AIService:
-    def __init__(self):
+    def __init__(self) -> None:
         self.client = AsyncOpenAI(
             api_key=db.get_system_setting("deepseek_api_key"),
             base_url="https://api.deepseek.com",
             http_client=http_client,
         )
 
-    def reinitialize_client(self):
+    def reinitialize_client(self) -> Any:
         """重新实例化deepseek client，用于感知系统设置中apikey的变化"""
         logger.info("正在重新初始化DeepSeek客户端")
         self.client = AsyncOpenAI(
@@ -80,9 +79,7 @@ class AIService:
         )
         logger.info("DeepSeek客户端重新初始化完成")
 
-
 ai_service = AIService()
-
 
 @retry(
     retry=retry_if_exception_type(
@@ -98,14 +95,13 @@ ai_service = AIService()
     before_sleep=before_sleep_log(logger, logging.WARNING),
     reraise=True,
 )
-async def call_llm_with_retry(messages: list, stream: bool):
+async def call_llm_with_retry(messages: list, stream: bool) -> Any:
     """封装调用 LLM 的底层逻辑，并附加重试机制"""
     return await ai_service.client.chat.completions.create(
         model="deepseek-chat", messages=messages, stream=stream
     )
 
-
-async def get_ai_response(request: ChatRequest, use_rag=False):
+async def get_ai_response(request: ChatRequest, use_rag: Any=False) -> Any:
     context = ""
     if request.notice_ids:
         context += """
@@ -141,7 +137,6 @@ async def get_ai_response(request: ChatRequest, use_rag=False):
             except Exception as e:
                 logger.error(f"向量数据库检索失败: {e}")
 
-    # 获取组装好的 Prompt
     messages = PromptEngine.build_chat_prompt(
         request.history, request.user_query, context
     )
@@ -149,7 +144,6 @@ async def get_ai_response(request: ChatRequest, use_rag=False):
     if db.get_system_setting("prompt_debug") != "0":
         logger.debug(messages)
 
-    # 调用 OpenAI/DeepSeek API
     logger.info("调用Deepseek API...")
     try:
         return await call_llm_with_retry(messages, request.stream)
@@ -163,8 +157,7 @@ async def get_ai_response(request: ChatRequest, use_rag=False):
         logger.error(f"DeepSeek 连接失败：{e}")
         raise HTTPException(status_code=500, detail=f"内部错误: {str(e)}")
 
-
-async def generate_stream(response):
+async def generate_stream(response: Any) -> Any:
     async for chunk in response:
         content = chunk.choices[0].delta.content
         if content is not None:

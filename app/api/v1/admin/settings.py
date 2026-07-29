@@ -20,25 +20,21 @@ router = APIRouter(prefix="/settings", route_class=LoggingRoute)
 
 logger = setup_logger("settings_logs")
 
-
-def reinitialize_client(func):
+def reinitialize_client(func: Any) -> Any:
     @wraps(func)
-    async def wrapper(*args, **kwargs):
+    async def wrapper(*args: Any, **kwargs: Any) -> Any:
         result = await func(*args, **kwargs)
         ai_service.reinitialize_client()
         return result
 
     return wrapper
 
-
 @router.put("/password", response_model=ResponseModel)
 async def update_password(
     settings: Dict[str, Any],
     admin_info: dict = Depends(verify_admin_token),
-):
-    """
-    修改管理员密码。
-    """
+) -> Any:
+    """修改管理员密码。"""
     logger.info(f"Request ID: {admin_info['x_request_id']}")
     logger.info(f"Client Version: {admin_info['x_client_version']}")
     admin = await to_thread(db.get_admin_user, admin_info["username"])
@@ -51,30 +47,24 @@ async def update_password(
     else:
         return ResponseModel(msg="用户不存在", data={})
 
-
 @reinitialize_client
 @router.get("", response_model=ResponseModel)
 async def get_system_settings(
     admin_info: dict = Depends(verify_admin_token),
-):
-    """
-    获取系统设置信息。
-    """
+) -> Any:
+    """获取系统设置信息。"""
     db._sync_settings()
     logger.info(f"Request ID: {admin_info['x_request_id']}")
     logger.info(f"Client Version: {admin_info['x_client_version']}")
     return ResponseModel(msg="请求成功", data=db.get_all_settings())
-
 
 @reinitialize_client
 @router.put("/reset", response_model=ResponseModel)
 async def reset_settings(
     settings: List[str],
     admin_info: dict = Depends(verify_admin_token),
-):
-    """
-    重置系统设置。
-    """
+) -> Any:
+    """重置系统设置。"""
     logger.info(f"Request ID: {admin_info['x_request_id']}")
     logger.info(f"Client Version: {admin_info['x_client_version']}")
     sanitized_data = [k for k in settings if k in ALLOWED_SETTINGS.keys()]
@@ -85,16 +75,13 @@ async def reset_settings(
         db.reset_system_setting(key)
     return ResponseModel(msg="修改成功", data={})
 
-
 @reinitialize_client
 @router.put("", response_model=ResponseModel)
 async def toggle_apikey(
     settings: UpdateSettingRequest,
     admin_info: dict = Depends(verify_admin_token),
-):
-    """
-    修改系统设置。
-    """
+) -> Any:
+    """修改系统设置。"""
     logger.info(f"Request ID: {admin_info['x_request_id']}")
     logger.info(f"Client Version: {admin_info['x_client_version']}")
     msg = "修改成功"
@@ -104,14 +91,11 @@ async def toggle_apikey(
             db.update_system_setting(setting.key, setting.value)
     return ResponseModel(msg=msg, data={})
 
-
 @router.put("/motto", response_model=ResponseModel)
 async def refresh_motto(
     admin_info: dict = Depends(verify_admin_token),
-):
-    """
-    手动刷新每日一言。
-    """
+) -> Any:
+    """手动刷新每日一言。"""
     logger.info(f"Request ID: {admin_info['x_request_id']}")
     logger.info(f"Client Version: {admin_info['x_client_version']}")
     today_str = date.today().strftime("%Y-%m-%d")
@@ -122,14 +106,11 @@ async def refresh_motto(
         logger.error(f"手动刷新每日一言失败：{traceback.format_exc()}")
         return ResponseModel(msg=f"每日一言刷新失败，遇到错误：{str(e)}", data={})
 
-
 @router.put("/crawler", response_model=ResponseModel)
 async def force_crawl(
     admin_info: dict = Depends(verify_admin_token),
-):
-    """
-    手动执行爬虫。
-    """
+) -> Any:
+    """手动执行爬虫。"""
     logger.info(f"Request ID: {admin_info['x_request_id']}")
     logger.info(f"Client Version: {admin_info['x_client_version']}")
     await to_thread(run_crawler_job)

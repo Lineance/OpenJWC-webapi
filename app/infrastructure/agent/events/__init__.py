@@ -1,5 +1,3 @@
-"""Agent event models and SSE serialization."""
-
 from .stream import to_sse
 from .types import AgentEvent
 

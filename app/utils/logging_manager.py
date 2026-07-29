@@ -1,3 +1,5 @@
+
+from typing import Any
 import logging
 from logging.handlers import RotatingFileHandler
 from app.core.config import LOGS_DIR
@@ -8,8 +10,7 @@ _SHARED_HANDLERS = {}
 
 LOG_PATTERN = re.compile(r"^\[(.*?)\] \[(.*?)\] \[(.*?)\] \[(.*?)\] - (.*)$")
 
-
-def _get_shared_handlers():
+def _get_shared_handlers() -> Any:
     """初始化并获取共享的日志处理器"""
     if _SHARED_HANDLERS:
         return _SHARED_HANDLERS
@@ -56,12 +57,8 @@ def _get_shared_handlers():
 
     return _SHARED_HANDLERS
 
-
 def setup_logger(logger_name: str) -> logging.Logger:
-    """
-    :param logger_name: 日志器名称（模块名）
-    :return: 配置好的标准 logging.Logger 实例
-    """
+    """:param logger_name: 日志器名称（模块名）"""
     logger = logging.getLogger(logger_name)
 
     if logger.hasHandlers():
@@ -76,8 +73,7 @@ def setup_logger(logger_name: str) -> logging.Logger:
 
     return logger
 
-
-def parse_logs(level: str = None, module: str = None, keyword: str = None):
+def parse_logs(level: str = None, module: str = None, keyword: str = None) -> Any:
     """读取并解析日志文件，处理多行 Traceback，并应用过滤条件"""
     log_file_path = LOGS_DIR / "app.log"
     if not log_file_path.exists():

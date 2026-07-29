@@ -1,12 +1,9 @@
-"""Article detail tool backed by ArticleRepository."""
-
 import json
 from typing import Any
 
 from app.infrastructure.storage.lancedb.repository import ArticleRepository
 
 from .protocol import ToolResult
-
 
 class DetailTool:
     name = "get_article_detail"

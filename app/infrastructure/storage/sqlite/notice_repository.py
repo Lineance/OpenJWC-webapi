@@ -8,11 +8,9 @@ from app.utils.logging_manager import setup_logger
 
 logger = setup_logger("notice_repository_logs")
 
-
 class NoticeRepository:
-    """SQLite-backed notice repository used by notices APIs."""
 
-    def __init__(self, db_service=db):
+    def __init__(self, db_service: Any=db) -> None:
         self._db = db_service
 
     @staticmethod
@@ -255,9 +253,7 @@ class NoticeRepository:
             logger.error(f"Delete notice failed: {e}")
             return False
 
-
 _notice_repository: NoticeRepository | None = None
-
 
 def get_notice_repository() -> NoticeRepository:
     global _notice_repository

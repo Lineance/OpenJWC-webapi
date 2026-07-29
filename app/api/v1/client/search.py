@@ -1,3 +1,5 @@
+
+from typing import Any
 import json
 from asyncio import to_thread
 
@@ -14,7 +16,6 @@ from app.utils.logging_manager import setup_logger
 logger = setup_logger("search_logs")
 retrieval_engine: RetrievalEngine | None = None
 
-
 def _get_retrieval_engine() -> RetrievalEngine:
     global retrieval_engine
     if retrieval_engine is None:
@@ -23,36 +24,24 @@ def _get_retrieval_engine() -> RetrievalEngine:
         )
     return retrieval_engine
 
-
 router = APIRouter(prefix="/notices/search", route_class=LoggingRoute)
-
 
 @router.post("", response_model=ResponseModel)
 async def hybrid_search(
     request: SemanticSearchRequest,
     auth: dict = Depends(verify_client_token),
-):
-    """
-    混合搜索资讯接口（向量+全文），强制鉴权，消耗嵌入模型额度
-
-    Args:
-        request: 搜索请求，包含查询文本、返回数量上限、最低相似度阈值
-
-    Returns:
-        带相似度分数和元信息的搜索结果
-    """
+) -> Any:
+    """混合搜索资讯接口（向量+全文），强制鉴权，消耗嵌入模型额度"""
     logger.info(
         f"接受到混合搜索请求: {request.query[:50]}... User: {auth.get('username')}..."
     )
-    # 获取系统默认相似度阈值
+
     min_similarity = request.min_similarity
     if min_similarity is None:
         min_similarity = float(db.get_system_setting("search_min_similarity"))
 
-    # 限制 top_k 范围
     top_k = max(1, min(request.top_k, 20))
 
-    # 执行混合搜索
     search_payload = await to_thread(
         _get_retrieval_engine().search,
         request.query,

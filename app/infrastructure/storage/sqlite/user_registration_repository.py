@@ -6,9 +6,8 @@ from app.utils.logging_manager import setup_logger
 
 logger = setup_logger("user_registration_repository_logs")
 
-
 class UserRegistrationRepository:
-    def __init__(self, db_service: Any):
+    def __init__(self, db_service: Any) -> None:
         self._db = db_service
 
     def list_for_admin(
@@ -57,7 +56,7 @@ class UserRegistrationRepository:
             if not row:
                 return None
             row_dict = dict(row)
-            return UserRegistrationRecord(
+            return UserRegistrationRecord.from_storage(
                 id=int(row_dict["id"]),
                 username=str(row_dict.get("username") or ""),
                 email=str(row_dict.get("email") or ""),
@@ -86,7 +85,7 @@ class UserRegistrationRepository:
             if not row:
                 return None
             row_dict = dict(row)
-            return UserRegistrationRecord(
+            return UserRegistrationRecord.from_storage(
                 id=int(row_dict["id"]),
                 username=str(row_dict.get("username") or ""),
                 email=str(row_dict.get("email") or ""),
@@ -104,7 +103,7 @@ class UserRegistrationRepository:
             if not row:
                 return None
             row_dict = dict(row)
-            return UserRegistrationRecord(
+            return UserRegistrationRecord.from_storage(
                 id=int(row_dict["id"]),
                 username=str(row_dict.get("username") or ""),
                 email=str(row_dict.get("email") or ""),

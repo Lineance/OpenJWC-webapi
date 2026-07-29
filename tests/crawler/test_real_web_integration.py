@@ -13,14 +13,11 @@ from app.infrastructure.crawler.python_crawler.article_url_crawler import (
 if TYPE_CHECKING:
     from pathlib import Path
 
-
 REAL_LIST_URL = "https://jwc.seu.edu.cn/jwxx/list.htm"
 REAL_ARTICLE_URL = "https://jwc.seu.edu.cn/2026/0228/c21678a556262/page.htm"
 REAL_ARTICLE_PATH = "/2026/0228/c21678a556262/page.htm"
 
-
 pytestmark = pytest.mark.real_web
-
 
 @pytest.mark.asyncio
 async def test_real_list_page_contains_target_article_link() -> None:
@@ -38,9 +35,7 @@ async def test_real_list_page_contains_target_article_link() -> None:
                 found = True
                 break
 
-    # Real-world assertion: target article is discoverable from the first paginated list pages.
     assert found is True
-
 
 @pytest.mark.asyncio
 async def test_real_article_content_fetch(tmp_path: Path) -> None:

@@ -6,7 +6,6 @@ from app.utils.logging_manager import setup_logger
 logger = setup_logger("user_registration_service")
 user_registration_repository = UserRegistrationRepository(db)
 
-
 def get_pending_registrations_for_admin(
     page: int,
     size: int,
@@ -16,7 +15,6 @@ def get_pending_registrations_for_admin(
     return user_registration_repository.list_for_admin(
         status=status, offset=offset, limit=size
     )
-
 
 def get_registration_detail(user_id: str) -> dict | None:
     record = user_registration_repository.get_by_id(user_id)
@@ -29,7 +27,6 @@ def get_registration_detail(user_id: str) -> dict | None:
         "status": record.status,
         "created_at": record.created_at,
     }
-
 
 def audit_user_registration(user_id: str, status: str, review: str) -> bool:
     parsed_status = parse_status(status)

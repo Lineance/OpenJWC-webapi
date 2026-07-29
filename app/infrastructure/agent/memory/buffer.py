@@ -1,8 +1,5 @@
-"""In-memory conversation window for agent sessions."""
-
 from collections import defaultdict, deque
 from typing import Any
-
 
 class ConversationBuffer:
     def __init__(self, window_size: int = 5) -> None:

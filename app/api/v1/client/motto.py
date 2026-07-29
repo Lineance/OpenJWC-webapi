@@ -1,3 +1,5 @@
+
+from typing import Any
 from datetime import date
 from fastapi import APIRouter, Depends
 from app.utils.logging_manager import setup_logger
@@ -11,9 +13,8 @@ logger = setup_logger("motto_api_logs")
 
 router = APIRouter(prefix="/motto", route_class=LoggingRoute)
 
-
 @router.get("", response_model=ResponseModel)
-async def get_motto(auth: dict = Depends(verify_client_token)):
+async def get_motto(auth: dict = Depends(verify_client_token)) -> Any:
     today_str = date.today().strftime("%Y-%m-%d")
     success, data = await to_thread(db.get_today_motto, today_str)
     if (not success) and await to_thread(db.insert_motto_from_hitokoto, today_str):
@@ -35,4 +36,3 @@ async def get_motto(auth: dict = Depends(verify_client_token)):
             "author": "Moonhalf",
         },
     )
-

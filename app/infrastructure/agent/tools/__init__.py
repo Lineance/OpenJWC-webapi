@@ -1,5 +1,3 @@
-"""Tool registry and built-in tools."""
-
 from .detail import DetailTool
 from .registry import ToolRegistry
 

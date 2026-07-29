@@ -1,21 +1,20 @@
 """Embedder Real Integration Tests - 使用真实模型"""
 
+from typing import Any
+
 import pytest
 
 pytest.importorskip("sentence_transformers")
 
-
 @pytest.fixture(autouse=True)
-def reset_embedder_singleton():
+def reset_embedder_singleton() -> Any:
     """在每个测试前后重置 Embedder 单例"""
     from app.infrastructure.ingestion.embedder.local_embedder import Embedder
 
-    # 重置单例
     Embedder.reset()
     yield
-    # 测试后重置
-    Embedder.reset()
 
+    Embedder.reset()
 
 @pytest.mark.slow
 class TestEmbedderRealModel:
@@ -29,7 +28,7 @@ class TestEmbedderRealModel:
         result = embedder.embed_titles(["东南大学", "计算机学院"])
 
         assert len(result) == 2
-        assert len(result[0]) == 384  # Title embedding dim
+        assert len(result[0]) == 384
 
     def test_embed_contents_real_model(self) -> None:
         """测试使用真实模型进行内容嵌入"""
@@ -39,7 +38,7 @@ class TestEmbedderRealModel:
         result = embedder.embed_contents(["这是测试内容", "另一条内容"])
 
         assert len(result) == 2
-        assert len(result[0]) == 1024  # Content embedding dim
+        assert len(result[0]) == 1024
 
     def test_embed_query_real_model(self) -> None:
         """测试使用真实模型进行查询嵌入"""
@@ -48,7 +47,7 @@ class TestEmbedderRealModel:
         embedder = Embedder()
         result = embedder.embed_query("东南大学计算机学院")
 
-        assert len(result) == 1024  # Content embedding dim
+        assert len(result) == 1024
 
     def test_embed_batch_real_model(self) -> None:
         """测试批量嵌入"""

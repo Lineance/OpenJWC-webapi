@@ -4,7 +4,6 @@ from app.infrastructure.ingestion.adapters.crawler import CrawlerAdapter
 from app.infrastructure.ingestion.validators import DocumentValidator
 from app.infrastructure.storage.lancedb import ArticleFields
 
-
 def test_convert_rust_crawler_payload_alignment() -> None:
     adapter = CrawlerAdapter()
     validator = DocumentValidator()
@@ -38,7 +37,6 @@ def test_convert_rust_crawler_payload_alignment() -> None:
 
     validation = validator.validate(converted)
     assert validation.is_valid is True
-
 
 def test_convert_python_crawler_payload_keeps_existing_fields() -> None:
     adapter = CrawlerAdapter()

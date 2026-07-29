@@ -1,3 +1,5 @@
+
+from typing import Any
 import time
 import os
 import psutil
@@ -5,11 +7,9 @@ from app.models.models import SysinfoData
 from app.models.schemas import ResponseModel
 from app.utils.logging_manager import setup_logger
 
-# 记录程序启动时间，用于计算 uptime
 START_TIME = time.time()
 
 logger = setup_logger("sysinfo_monitor_logs")
-
 
 class SystemMonitor:
     """系统监控工具类"""
@@ -29,14 +29,12 @@ class SystemMonitor:
             uptime_seconds=f"{int(uptime)}s",
         )
 
-
-def get_server_status():
+def get_server_status() -> Any:
     try:
         data = SystemMonitor.get_stats()
         return ResponseModel(data=data, msg="success")
     except Exception as e:
         return ResponseModel(data=None, msg=f"error: {str(e)}")
-
 
 if __name__ == "__main__":
     res = get_server_status()

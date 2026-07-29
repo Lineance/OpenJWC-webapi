@@ -1,5 +1,3 @@
-"""Event types for streaming agent execution."""
-
 from datetime import UTC, datetime
 from typing import Any, Literal
 
@@ -14,7 +12,6 @@ EventType = Literal[
     "done",
     "error",
 ]
-
 
 class AgentEvent(BaseModel):
     type: EventType

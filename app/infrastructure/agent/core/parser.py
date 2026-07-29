@@ -1,9 +1,6 @@
-"""Parser for extracting and validating tool actions from model output."""
-
 import json
 import re
 from typing import Any
-
 
 def _iter_json_candidates(text: str) -> list[str]:
     decoder = json.JSONDecoder()
@@ -28,7 +25,6 @@ def _iter_json_candidates(text: str) -> list[str]:
 
     return candidates
 
-
 def _repair_candidate(snippet: str) -> str:
     repaired = snippet.strip()
     repaired = repaired.replace("\u201c", '"').replace("\u201d", '"')
@@ -37,7 +33,6 @@ def _repair_candidate(snippet: str) -> str:
     if '"' not in repaired and "'" in repaired:
         repaired = repaired.replace("'", '"')
     return repaired
-
 
 def _normalize_action(
     payload: Any,
@@ -72,13 +67,11 @@ def _normalize_action(
     normalized["input"] = raw_input
     return normalized, None
 
-
 def parse_action_detailed(
     text: str,
     *,
     available_tools: list[str] | None = None,
 ) -> tuple[dict[str, Any] | None, str | None]:
-    """Parse action JSON with strict schema validation and candidate repair."""
     if not text:
         return None, "empty response"
 
@@ -103,8 +96,6 @@ def parse_action_detailed(
 
     return None, "; ".join(errors[-3:]) if errors else "action parse failed"
 
-
 def parse_action(text: str) -> dict[str, Any] | None:
-    """Backward-compatible parser returning action or None."""
     action, _ = parse_action_detailed(text)
     return action

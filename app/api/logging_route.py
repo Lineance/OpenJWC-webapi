@@ -5,7 +5,6 @@ from app.utils.logging_manager import setup_logger
 
 logger = setup_logger("logging_route_logs")
 
-
 class LoggingRoute(APIRoute):
     def get_route_handler(self) -> Callable:
         original_route_handler = super().get_route_handler()
